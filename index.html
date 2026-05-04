@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Contraseñas</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Font Awesome para iconos -->
+    <!-- Manifest y PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6366f1">
+</head>
+<body>
+    <div id="app">
+        <!-- Pantalla de Login -->
+        <section id="login-screen" class="screen active">
+            <div class="glass-card login-card">
+                <div class="logo">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <h2>Bienvenido</h2>
+                <p id="login-subtitle">Ingresa tu PIN maestro para continuar</p>
+                
+                <form id="login-form">
+                    <div class="input-group">
+                        <i class="fa-solid fa-lock"></i>
+                        <input type="password" id="master-pin" placeholder="PIN o Contraseña Maestra" required autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="login-btn">Desbloquear</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Dashboard Principal -->
+        <section id="dashboard-screen" class="screen">
+            <header class="glass-header">
+                <div class="header-content">
+                    <h1><i class="fa-solid fa-shield-halved"></i> Bóveda</h1>
+                    <div class="header-actions">
+                        <button id="btn-sync" class="btn-icon" title="Sincronizar con Drive"><i class="fa-brands fa-google-drive"></i></button>
+                        <button id="btn-settings" class="btn-icon" title="Configuración"><i class="fa-solid fa-gear"></i></button>
+                        <button id="btn-lock" class="btn-icon" title="Bloquear Bóveda"><i class="fa-solid fa-lock"></i></button>
+                    </div>
+                </div>
+            </header>
+
+            <main class="dashboard-content">
+                <div class="search-bar glass-card">
+                    <i class="fa-solid fa-search"></i>
+                    <input type="text" id="search-input" placeholder="Buscar plataforma...">
+                </div>
+
+                <div id="passwords-list" class="passwords-list">
+                    <!-- Los items se renderizan aquí dinámicamente -->
+                </div>
+
+                <button id="btn-add" class="fab"><i class="fa-solid fa-plus"></i></button>
+            </main>
+        </section>
+
+        <!-- Modal para Crear/Editar Contraseña -->
+        <div id="password-modal" class="modal">
+            <div class="modal-content glass-card">
+                <div class="modal-header">
+                    <h2 id="modal-title">Nueva Contraseña</h2>
+                    <span class="close-btn" id="close-modal-btn">&times;</span>
+                </div>
+                <form id="password-form">
+                    <input type="hidden" id="entry-id">
+                    
+                    <div class="input-group">
+                        <label for="entry-platform">Plataforma / Servicio</label>
+                        <input type="text" id="entry-platform" placeholder="Ej. Facebook, Netflix" required>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="entry-username">Usuario / Email</label>
+                        <input type="text" id="entry-username" placeholder="usuario@email.com" required>
+                    </div>
+                    
+                    <div class="input-group password-group">
+                        <label for="entry-password">Contraseña</label>
+                        <div class="password-input-wrapper">
+                            <input type="password" id="entry-password" placeholder="••••••••" required>
+                            <button type="button" class="btn-icon toggle-password" id="toggle-entry-pwd" title="Mostrar contraseña"><i class="fa-solid fa-eye"></i></button>
+                            <button type="button" class="btn-icon btn-generate" id="btn-generate-pwd" title="Generar Contraseña Segura"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+                        </div>
+                    </div>
+                    
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" id="btn-cancel-modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btn-save-modal">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal de Confirmación para Borrar -->
+        <div id="confirm-modal" class="modal">
+            <div class="modal-content glass-card" style="max-width: 350px; text-align: center;">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 3rem; color: var(--danger-color); margin-bottom: 15px;"></i>
+                <h3>¿Eliminar Credencial?</h3>
+                <p style="color: var(--text-secondary); margin: 10px 0 20px;">Esta acción no se puede deshacer.</p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-delete">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btn-confirm-delete" style="background: var(--danger-color);">Eliminar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notificaciones Toast -->
+        <div id="toast-container"></div>
+    </div>
+
+    <!-- Scripts modulares -->
+    <script src="js/crypto.js" defer></script>
+    <script src="js/storage.js" defer></script>
+    <script src="js/generator.js" defer></script>
+    <script src="js/gdrive-sync.js" defer></script>
+    <script src="js/app.js" defer></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js')
+                    .then(reg => console.log('Service Worker registrado', reg))
+                    .catch(err => console.error('Error registrando Service Worker', err));
+            });
+        }
+    </script>
+</body>
+</html>
