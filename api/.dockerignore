@@ -1,0 +1,47 @@
+# ==========================================
+# KeyVault API - .dockerignore
+# Lo listado aquí NO se envía al contexto de build de Docker.
+# ==========================================
+
+# ---------- Dependencias ----------
+# Se instalan frescas con `npm ci --omit=dev` dentro del Dockerfile.
+node_modules/
+
+# ---------- Logs ----------
+npm-debug.log*
+yarn-debug.log*
+*.log
+logs/
+
+# ---------- Secretos / entorno ----------
+.env
+.env.*
+!.env.example
+
+# ---------- Tests y cobertura ----------
+coverage/
+.nyc_output/
+test/
+tests/
+__tests__/
+
+# ---------- Control de versiones y metadatos ----------
+.git/
+.gitignore
+
+# ---------- Docker (evita recursión) ----------
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# ---------- Documentación (no se necesita en runtime) ----------
+*.md
+docs/
+.specs/
+README.md
+
+# ---------- Editores / OS ----------
+.vscode/
+.idea/
+.DS_Store
+*.swp

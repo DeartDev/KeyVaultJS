@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%">
+  <defs>
+    <!-- Gradiente cian/azul para el escudo de protección -->
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F2FE" />
+      <stop offset="100%" stop-color="#4FACFE" />
+    </linearGradient>
+    
+    <!-- Gradiente metálico/brillante para el cerrojo -->
+    <linearGradient id="lockGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#CBD5E1" />
+    </linearGradient>
+  </defs>
+
+  <style>
+    /* Soporte automático para Dark / Light mode */
+    .bg-card { fill: #0F172A; rx: 16px; transition: fill 0.3s ease; }
+    .shield-icon { fill: url(#shieldGrad); }
+    .lock-body { fill: url(#lockGrad); }
+    .lock-shackle { stroke: url(#lockGrad); stroke-width: 4.5; fill: none; stroke-linecap: round; }
+    .keyhole { fill: #0F172A; }
+
+    @media (prefers-color-scheme: light) {
+      .bg-card { fill: #F8FAFC; }
+    }
+  </style>
+
+  <!-- Base contenedor redondeada -->
+  <rect class="bg-card" width="64" height="64" rx="16" />
+
+  <!-- Escudo geométrico -->
+  <path class="shield-icon" d="M32 10 L48 16 V28 C48 40.5 32 50 32 50 C32 50 16 40.5 16 28 V16 L32 10 Z" />
+
+  <!-- Arco del candado -->
+  <path class="lock-shackle" d="M26 27 V22 C26 18.686 28.686 16 32 16 C35.314 16 38 18.686 38 22 V27" />
+
+  <!-- Cuerpo del candado -->
+  <rect class="lock-body" x="23" y="27" width="18" height="15" rx="3" />
+
+  <!-- Ojo de la cerradura (Core de cifrado) -->
+  <circle class="keyhole" cx="32" cy="32.5" r="2" />
+  <path class="keyhole" d="M31.2 32.5 L32.8 32.5 L33.2 38 L30.8 38 Z" />
+</svg>

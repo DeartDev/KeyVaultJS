@@ -1,0 +1,29 @@
+{
+  "name": "keyvaultjs-api",
+  "version": "1.0.0",
+  "description": "Backend API for KeyVaultJS password manager (Zero-Knowledge, blob-only storage)",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "migrate": "node src/utils/migrations.js up",
+    "migrate:status": "node src/utils/migrations.js status"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.12.0",
+    "pino": "^9.3.2",
+    "pino-http": "^10.2.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "pino-pretty": "^11.2.2"
+  }
+}

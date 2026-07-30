@@ -1,8 +1,13 @@
 /* Variables y Diseño Premium */
 :root {
+    /* ---- Dark (default) ---- */
     --bg-color: #0f172a; /* Slate 900 */
+    --bg-gradient-1: #1e1b4b;
+    --bg-gradient-2: #0f172a;
     --surface-color: rgba(30, 41, 59, 0.7); /* Slate 800 transparente para glass */
     --surface-border: rgba(255, 255, 255, 0.1);
+    --input-bg: rgba(15, 23, 42, 0.6);
+    --header-bg: rgba(15, 23, 42, 0.8);
     --primary-color: #6366f1; /* Indigo 500 */
     --primary-hover: #4f46e5; /* Indigo 600 */
     --secondary-color: #38bdf8; /* Sky 400 */
@@ -10,10 +15,32 @@
     --text-secondary: #94a3b8; /* Slate 400 */
     --danger-color: #ef4444; /* Red 500 */
     --success-color: #10b981; /* Emerald 500 */
-    
+
     --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
     --glass-blur: backdrop-filter: blur(12px);
     --transition: all 0.3s ease;
+
+    color-scheme: dark;
+}
+
+/* ---- Light ---- */
+:root[data-theme="light"] {
+    --bg-color: #f1f5f9; /* Slate 100 */
+    --bg-gradient-1: #e0e7ff;
+    --bg-gradient-2: #f8fafc;
+    --surface-color: rgba(255, 255, 255, 0.72);
+    --surface-border: rgba(15, 23, 42, 0.1);
+    --input-bg: rgba(255, 255, 255, 0.75);
+    --header-bg: rgba(255, 255, 255, 0.85);
+    --secondary-color: #0ea5e9; /* Sky 500 */
+    --text-primary: #0f172a;
+    --text-secondary: #64748b; /* Slate 500 */
+    --danger-color: #dc2626;
+    --success-color: #059669;
+
+    --glass-shadow: 0 4px 30px rgba(15, 23, 42, 0.12);
+
+    color-scheme: light;
 }
 
 * {
@@ -24,8 +51,8 @@
 
 body {
     background-color: var(--bg-color);
-    background-image: radial-gradient(circle at top right, #1e1b4b, transparent 40%),
-                      radial-gradient(circle at bottom left, #0f172a, transparent 40%);
+    background-image: radial-gradient(circle at top right, var(--bg-gradient-1), transparent 40%),
+                      radial-gradient(circle at bottom left, var(--bg-gradient-2), transparent 40%);
     color: var(--text-primary);
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     min-height: 100vh;
@@ -33,6 +60,7 @@ body {
     justify-content: center;
     align-items: center;
     overflow: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 #app {
@@ -74,6 +102,12 @@ body {
 
 /* --- Pantalla de Login --- */
 #login-screen {
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+#auth-screen {
     justify-content: center;
     align-items: center;
     padding: 20px;
@@ -129,7 +163,7 @@ body {
 .input-group input:not(.password-input-wrapper input) {
     width: 100%;
     padding: 14px 15px 14px 45px;
-    background: rgba(15, 23, 42, 0.6);
+    background: var(--input-bg);
     border: 1px solid var(--surface-border);
     border-radius: 10px;
     color: var(--text-primary);
@@ -158,7 +192,7 @@ body {
 .password-input-wrapper input {
     width: 100%;
     padding: 14px 90px 14px 15px;
-    background: rgba(15, 23, 42, 0.6);
+    background: var(--input-bg);
     border: 1px solid var(--surface-border);
     border-radius: 10px;
     color: var(--text-primary);
@@ -254,7 +288,7 @@ body {
 /* --- Dashboard --- */
 .glass-header {
     padding: 20px;
-    background: rgba(15, 23, 42, 0.8);
+    background: var(--header-bg);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--surface-border);
     position: sticky;
@@ -511,4 +545,155 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.2);
+}
+
+/* --- Pantalla de Auth (login/registro) --- */
+.auth-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    background: rgba(15, 23, 42, 0.6);
+    padding: 5px;
+    border-radius: 12px;
+    border: 1px solid var(--surface-border);
+}
+
+.auth-tab {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: var(--transition);
+}
+
+.auth-tab.active {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+    color: white;
+    box-shadow: 0 2px 10px rgba(99, 102, 241, 0.4);
+}
+
+.btn-text {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    margin-top: 20px;
+    text-decoration: underline;
+    transition: var(--transition);
+}
+
+.btn-text:hover {
+    color: var(--text-primary);
+}
+
+/* --- Logo SVG --- */
+.logo-svg {
+    width: 72px;
+    height: 72px;
+    margin-bottom: 10px;
+    filter: drop-shadow(0 4px 14px rgba(79, 172, 254, 0.35));
+}
+
+.header-logo {
+    width: 30px;
+    height: 30px;
+}
+
+.kv-keyhole {
+    fill: #0f172a;
+}
+
+/* --- Modal de Configuración --- */
+.settings-section {
+    margin-bottom: 22px;
+    text-align: left;
+}
+
+.settings-section label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.settings-section label i {
+    color: var(--secondary-color);
+    width: 18px;
+    text-align: center;
+}
+
+.settings-section select,
+.settings-section input[type="number"] {
+    width: 100%;
+    padding: 12px 15px;
+    background: var(--input-bg);
+    border: 1px solid var(--surface-border);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-size: 1rem;
+    outline: none;
+    transition: var(--transition);
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.settings-section select {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 16px;
+    padding-right: 40px;
+    cursor: pointer;
+}
+
+.settings-section select:focus,
+.settings-section input[type="number"]:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.settings-section select option {
+    background: var(--bg-color);
+    color: var(--text-primary);
+}
+
+.settings-section small {
+    display: block;
+    margin-top: 8px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.settings-danger {
+    border-top: 1px solid var(--surface-border);
+    padding-top: 18px;
+}
+
+.settings-danger .btn {
+    width: 100%;
+}
+
+/* --- Toggle rápido de tema --- */
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* --- Scrollbar por tema --- */
+:root[data-theme="light"] ::-webkit-scrollbar-thumb {
+    background: rgba(15, 23, 42, 0.15);
+}
+
+:root[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+    background: rgba(15, 23, 42, 0.3);
 }

@@ -3,31 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestor de Contraseñas</title>
+    <title>KeyVault</title>
+    <link rel="icon" href="keyvault.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="keyvault.svg">
     <link rel="stylesheet" href="css/styles.css">
     <!-- Font Awesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Manifest y PWA -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#6366f1">
+
+    <!-- Anti-FOUC: aplica el tema antes del render para evitar parpadeo. -->
+    <script>
+        (function () {
+            try {
+                var stored = localStorage.getItem('pm_theme') || 'system';
+                var theme = stored;
+                if (stored === 'system') {
+                    theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+                }
+                document.documentElement.dataset.theme = theme;
+            } catch (e) {
+                document.documentElement.dataset.theme = 'dark';
+            }
+        })();
+    </script>
 </head>
 <body>
+    <!-- Sprite SVG con el logo de KeyVault (reutilizable via <use>). -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+        <defs>
+            <linearGradient id="kv-shield-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#00F2FE" />
+                <stop offset="100%" stop-color="#4FACFE" />
+            </linearGradient>
+            <linearGradient id="kv-lock-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#FFFFFF" />
+                <stop offset="100%" stop-color="#CBD5E1" />
+            </linearGradient>
+            <symbol id="kv-logo" viewBox="0 0 64 64">
+                <path fill="url(#kv-shield-grad)" d="M32 10 L48 16 V28 C48 40.5 32 50 32 50 C32 50 16 40.5 16 28 V16 L32 10 Z" />
+                <path stroke="url(#kv-lock-grad)" stroke-width="4.5" fill="none" stroke-linecap="round" d="M26 27 V22 C26 18.686 28.686 16 32 16 C35.314 16 38 18.686 38 22 V27" />
+                <rect fill="url(#kv-lock-grad)" x="23" y="27" width="18" height="15" rx="3" />
+                <circle class="kv-keyhole" cx="32" cy="32.5" r="2" />
+                <path class="kv-keyhole" d="M31.2 32.5 L32.8 32.5 L33.2 38 L30.8 38 Z" />
+            </symbol>
+        </defs>
+    </svg>
+
     <div id="app">
-        <!-- Pantalla de Login -->
-        <section id="login-screen" class="screen active">
+        <!-- Pantalla de Autenticación (login/registro de cuenta) -->
+        <section id="auth-screen" class="screen active">
             <div class="glass-card login-card">
                 <div class="logo">
-                    <i class="fa-solid fa-shield-halved"></i>
+                    <svg class="logo-svg" viewBox="0 0 64 64" role="img" aria-label="KeyVault"><use href="#kv-logo"></use></svg>
                 </div>
-                <h2>Bienvenido</h2>
-                <p id="login-subtitle">Ingresa tu PIN maestro para continuar</p>
-                
-                <form id="login-form">
+                <h2 id="auth-title">Bienvenido</h2>
+                <p id="auth-subtitle">Accede a tu cuenta para continuar</p>
+
+                <div class="auth-tabs">
+                    <button type="button" id="tab-login" class="auth-tab active">Entrar</button>
+                    <button type="button" id="tab-register" class="auth-tab">Registrarse</button>
+                </div>
+
+                <form id="auth-form">
+                    <div class="input-group">
+                        <i class="fa-solid fa-envelope"></i>
+                        <input type="email" id="auth-email" placeholder="Correo electrónico" required autocomplete="email">
+                    </div>
+                    <div class="input-group">
+                        <i class="fa-solid fa-lock"></i>
+                        <input type="password" id="auth-password" placeholder="Contraseña de cuenta (mín. 12 caracteres)" required autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="auth-btn">Entrar</button>
+                </form>
+
+                <button type="button" id="quick-theme-toggle-auth" class="btn-text theme-toggle" title="Cambiar tema">
+                    <i class="fa-solid fa-circle-half-stroke"></i> <span>Tema</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Pantalla de PIN Maestro (descifrar bóveda) -->
+        <section id="login-screen" class="screen">
+            <div class="glass-card login-card">
+                <div class="logo">
+                    <svg class="logo-svg" viewBox="0 0 64 64" role="img" aria-label="KeyVault"><use href="#kv-logo"></use></svg>
+                </div>
+                <h2 id="pin-title">Bóveda bloqueada</h2>
+                <p id="pin-subtitle">Introduce tu PIN maestro para descifrar la bóveda</p>
+
+                <form id="pin-form">
                     <div class="input-group">
                         <i class="fa-solid fa-lock"></i>
                         <input type="password" id="master-pin" placeholder="PIN o Contraseña Maestra" required autocomplete="current-password">
                     </div>
-                    <button type="submit" class="btn btn-primary" id="login-btn">Desbloquear</button>
+                    <button type="submit" class="btn btn-primary" id="pin-btn">Desbloquear</button>
                 </form>
+                <button type="button" id="btn-back-to-auth" class="btn-text">Cerrar sesión de cuenta</button>
             </div>
         </section>
 
@@ -35,11 +108,14 @@
         <section id="dashboard-screen" class="screen">
             <header class="glass-header">
                 <div class="header-content">
-                    <h1><i class="fa-solid fa-shield-halved"></i> Bóveda</h1>
+                    <h1>
+                        <svg class="header-logo" viewBox="0 0 64 64" aria-hidden="true"><use href="#kv-logo"></use></svg>
+                        <span>KeyVault</span>
+                    </h1>
                     <div class="header-actions">
-                        <button id="btn-sync" class="btn-icon" title="Sincronizar con Drive"><i class="fa-brands fa-google-drive"></i></button>
                         <button id="btn-settings" class="btn-icon" title="Configuración"><i class="fa-solid fa-gear"></i></button>
                         <button id="btn-lock" class="btn-icon" title="Bloquear Bóveda"><i class="fa-solid fa-lock"></i></button>
+                        <button id="btn-logout-account" class="btn-icon" title="Cerrar sesión"><i class="fa-solid fa-right-from-bracket"></i></button>
                     </div>
                 </div>
             </header>
@@ -67,17 +143,17 @@
                 </div>
                 <form id="password-form">
                     <input type="hidden" id="entry-id">
-                    
+
                     <div class="input-group">
                         <label for="entry-platform">Plataforma / Servicio</label>
                         <input type="text" id="entry-platform" placeholder="Ej. Facebook, Netflix" required>
                     </div>
-                    
+
                     <div class="input-group">
                         <label for="entry-username">Usuario / Email</label>
                         <input type="text" id="entry-username" placeholder="usuario@email.com" required>
                     </div>
-                    
+
                     <div class="input-group password-group">
                         <label for="entry-password">Contraseña</label>
                         <div class="password-input-wrapper">
@@ -86,7 +162,7 @@
                             <button type="button" class="btn-icon btn-generate" id="btn-generate-pwd" title="Generar Contraseña Segura"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
                         </div>
                     </div>
-                    
+
                     <div class="modal-actions">
                         <button type="button" class="btn btn-secondary" id="btn-cancel-modal">Cancelar</button>
                         <button type="submit" class="btn btn-primary" id="btn-save-modal">Guardar</button>
@@ -108,15 +184,56 @@
             </div>
         </div>
 
+        <!-- Modal de Configuración -->
+        <div id="settings-modal" class="modal">
+            <div class="modal-content glass-card">
+                <div class="modal-header">
+                    <h2>Configuración</h2>
+                    <span class="close-btn" id="close-settings-btn">&times;</span>
+                </div>
+
+                <div class="settings-section">
+                    <label for="theme-select">
+                        <i class="fa-solid fa-circle-half-stroke"></i> Tema
+                    </label>
+                    <select id="theme-select">
+                        <option value="system">Automático (sistema)</option>
+                        <option value="dark">Oscuro</option>
+                        <option value="light">Claro</option>
+                    </select>
+                </div>
+
+                <div class="settings-section">
+                    <label for="autolock-input">
+                        <i class="fa-solid fa-clock"></i> Auto-bloqueo (minutos)
+                    </label>
+                    <input type="number" id="autolock-input" min="0" max="120" step="1" value="5">
+                    <small>0 = desactivado. La bóveda se bloquea tras inactividad.</small>
+                </div>
+
+                <div class="settings-section settings-danger">
+                    <button type="button" class="btn btn-secondary" id="btn-settings-logout">
+                        <i class="fa-solid fa-right-from-bracket"></i> Cerrar sesión de cuenta
+                    </button>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-settings">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btn-save-settings">Guardar</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Notificaciones Toast -->
         <div id="toast-container"></div>
     </div>
 
     <!-- Scripts modulares -->
     <script src="js/crypto.js" defer></script>
+    <script src="js/api.js" defer></script>
+    <script src="js/auth.js" defer></script>
     <script src="js/storage.js" defer></script>
     <script src="js/generator.js" defer></script>
-    <script src="js/gdrive-sync.js" defer></script>
     <script src="js/app.js" defer></script>
     <script>
         if ('serviceWorker' in navigator) {
