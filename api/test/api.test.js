@@ -277,6 +277,141 @@ test('un usuario no puede leer el vault de otro', async () => {
 });
 
 // ==========================================
+// Cambio de contraseña de cuenta (Fase 4 / H-23)
+// ==========================================
+const NEW_PASSWORD = 'NuevaClaveSegura99';
+
+test('change-password exige sesión activa', async () => {
+  const res = await api('/api/auth/change-password', {
+    method: 'POST', body: { currentPassword: PASSWORD, newPassword: NEW_PASSWORD },
+  });
+  assert.equal(res.status, 401);
+});
+
+test('change-password cambia la contraseña y devuelve tokens nuevos', async () => {
+  const email = uniqueEmail();
+  const { body: session } = await register({ email });
+
+  const res = await api('/api/auth/change-password', {
+    method: 'POST', token: session.accessToken,
+    body: { currentPassword: PASSWORD, newPassword: NEW_PASSWORD },
+  });
+
+  assert.equal(res.status, 200);
+  assert.ok(res.body.accessToken);
+  assert.ok(res.body.refreshToken);
+  assert.notEqual(res.body.refreshToken, session.refreshToken);
+
+  // El par nuevo sirve de inmediato: no hace falta volver a iniciar sesión.
+  const vault = await api('/api/vault', { token: res.body.accessToken });
+  assert.equal(vault.status, 200);
+});
+
+test('tras el cambio, solo la contraseña nueva permite iniciar sesión', async () => {
+  const email = uniqueEmail();
+  const { body: session } = await register({ email });
+
+  await api('/api/auth/change-password', {
+    method: 'POST', token: session.accessToken,
+    body: { currentPassword: PASSWORD, newPassword: NEW_PASSWORD },
+  });
+
+  const conNueva = await api('/api/auth/login', { method: 'POST', body: { email, password: NEW_PASSWORD } });
+  assert.equal(conNueva.status, 200);
+
+  const conVieja = await api('/api/auth/login', { method: 'POST', body: { email, password: PASSWORD } });
+  assert.equal(conVieja.status, 401);
+});
+
+test('el cambio revoca los refresh tokens emitidos antes', async () => {
+  const email = uniqueEmail();
+  const { body: session } = await register({ email });
+
+  const res = await api('/api/auth/change-password', {
+    method: 'POST', token: session.accessToken,
+    body: { currentPassword: PASSWORD, newPassword: NEW_PASSWORD },
+  });
+  assert.equal(res.status, 200);
+
+  // El refresh token anterior al cambio ya no vale...
+  const viejo = await api('/api/auth/refresh', {
+    method: 'POST', body: { refreshToken: session.refreshToken },
+  });
+  assert.equal(viejo.status, 401);
+
+  // ...y el emitido junto al cambio sí. Importante: el intento fallido de
+  // arriba NO debe activar la detección de reutilización (H-11) y tumbar de
+  // paso la sesión recién creada. Un dispositivo obsoleto no puede echar al
+  // usuario que acaba de cambiar la contraseña.
+  const nuevo = await api('/api/auth/refresh', {
+    method: 'POST', body: { refreshToken: res.body.refreshToken },
+  });
+  assert.equal(nuevo.status, 200, 'la sesión nueva debe sobrevivir al refresh fallido de un dispositivo viejo');
+});
+
+test('change-password con la contraseña actual incorrecta da 401 y no cambia nada', async () => {
+  const email = uniqueEmail();
+  const { body: session } = await register({ email });
+
+  const res = await api('/api/auth/change-password', {
+    method: 'POST', token: session.accessToken,
+    body: { currentPassword: 'EstaNoEsLaBuena1', newPassword: NEW_PASSWORD },
+  });
+  assert.equal(res.status, 401);
+  assert.equal(res.body.error, 'invalid_credentials');
+
+  // El hash sigue intacto: la contraseña original todavía funciona.
+  const login = await api('/api/auth/login', { method: 'POST', body: { email, password: PASSWORD } });
+  assert.equal(login.status, 200);
+});
+
+test('change-password rechaza con 400 una contraseña nueva igual a la actual', async () => {
+  const { body: session } = await register();
+
+  const res = await api('/api/auth/change-password', {
+    method: 'POST', token: session.accessToken,
+    body: { currentPassword: PASSWORD, newPassword: PASSWORD },
+  });
+  assert.equal(res.status, 400);
+  assert.equal(res.body.error, 'bad_request');
+});
+
+test('change-password rechaza con 422 una contraseña nueva demasiado corta', async () => {
+  const { body: session } = await register();
+
+  const res = await api('/api/auth/change-password', {
+    method: 'POST', token: session.accessToken,
+    body: { currentPassword: PASSWORD, newPassword: 'corta123' },
+  });
+  assert.equal(res.status, 422);
+  assert.equal(res.body.error, 'validation_error');
+});
+
+test('cambiar la contraseña de cuenta no toca el vault ni el vaultSalt', async () => {
+  const email = uniqueEmail();
+  const { body: session } = await register({ email });
+  const blob = 'v2:600000:aXZiYXNlNjQ=:Y2lwaGVydGV4dA==';
+
+  await api('/api/vault', {
+    method: 'PUT', token: session.accessToken, body: { encryptedBlob: blob, version: 0 },
+  });
+
+  const changed = await api('/api/auth/change-password', {
+    method: 'POST', token: session.accessToken,
+    body: { currentPassword: PASSWORD, newPassword: NEW_PASSWORD },
+  });
+  assert.equal(changed.status, 200);
+
+  // El PIN maestro y la bóveda son independientes de la contraseña de cuenta.
+  const login = await api('/api/auth/login', { method: 'POST', body: { email, password: NEW_PASSWORD } });
+  assert.equal(login.body.user.vaultSalt, VAULT_SALT);
+
+  const vault = await api('/api/vault', { token: login.body.accessToken });
+  assert.equal(vault.body.encryptedBlob, blob);
+  assert.equal(vault.body.version, 1);
+});
+
+// ==========================================
 // Rate limiting (H-04)
 // ==========================================
 test('intentos fallidos repetidos contra la misma cuenta acaban en 429', async () => {

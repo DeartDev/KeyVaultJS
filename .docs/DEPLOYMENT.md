@@ -183,4 +183,6 @@ origen externo, y ningún asset debe cargarse desde un CDN.
 | La app sigue vieja tras desplegar | Service worker cacheado. El shell y el manifest se sirven con `Cache-Control: no-cache`; fuerza recarga o desregistra el SW. |
 | 429 en login | Rate limit. Ajusta `RATE_LIMIT_*` o espera a que pase la ventana. |
 | `token_reuse_detected` | Se reutilizó un refresh token ya rotado: todas las sesiones del usuario quedan revocadas por seguridad. Hay que volver a iniciar sesión. |
+| Sesión cerrada en todos los dispositivos | Alguien cambió la contraseña de cuenta: es el comportamiento esperado. Los access tokens ya emitidos siguen valiendo hasta 15 min. |
+| El PIN maestro no abre la bóveda en otro dispositivo | Se cambió el PIN en otro equipo. No hay forma de "empujar" el cambio (el servidor no conoce el PIN): hay que bloquear y volver a abrir con el nuevo. |
 | El vault no descifra en otro dispositivo | El `vault_salt` vive en `users.vault_salt` y lo entrega el backend en login. Verifica que la respuesta lo incluya. |

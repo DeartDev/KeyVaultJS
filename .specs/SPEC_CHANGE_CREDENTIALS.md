@@ -1,8 +1,10 @@
 # Especificación — Cambio de Credenciales (Password de Cuenta + PIN Maestro)
 
-> Estado: **Borrador** · Fecha: 2026-07-30
+> Estado: **Implementado** · Spec: 2026-07-30 · Implementación: 2026-08-20 (rama `dev`)
 > Companion de `.specs/SPEC_BACKEND.md`. Define dos funcionalidades nuevas de gestión de credenciales.
 > Ambas **requieren verificar la credencial actual** antes de permitir el cambio.
+>
+> Las desviaciones respecto a este documento durante la implementación están en el §11.
 
 ---
 
@@ -66,7 +68,9 @@ Ambas operaciones son **destructivas si se olvidan** y deben protegerse exigiend
 3. `bcrypt.hash(newPassword, BCRYPT_ROUNDS)`.
 4. En una transacción:
    - `UPDATE users SET password_hash = $1 WHERE id = $2`.
-   - `UPDATE refresh_tokens SET revoked = true WHERE user_id = $1` (revoca **todos** los refresh tokens).
+   - `DELETE FROM refresh_tokens WHERE user_id = $1` (cierra **todas** las sesiones).
+     *Ver §11.1: el spec proponía `revoked = true`, pero eso interactuaba mal con la
+     detección de reutilización de tokens.*
 5. Emitir un **nuevo par** access + refresh (para que el cliente continúe sin re-login).
 6. Devolver respuesta.
 
@@ -105,7 +109,11 @@ El PIN maestro **no se envía al servidor**. Cambiarlo significa:
 3. Subir el nuevo blob cifrado con `PUT /api/vault` (manejando el `version` como siempre).
 
 ### 4.2 Salt del vault
-**Decisión**: mantener el `pm_salt` existente (no rotar).
+**Decisión**: mantener el salt existente (no rotar).
+
+> Nota posterior: el salt ya no vive en `localStorage` como `pm_salt`. La fuente
+> única de verdad es `users.vault_salt`, que el backend entrega en login/registro.
+> La decisión de no rotarlo sigue siendo válida y no requiere cambios.
 - El salt es por-usuario y ya aleatorio; rotarlo no aporta seguridad práctica en este flujo.
 - El backend ya guarda `users.vault_salt`; no requiere cambios.
 - *Futuro*: si se quiere rotación de salt, se añade `POST /api/auth/rotate-vault-salt` (fuera de este spec).
@@ -137,7 +145,7 @@ mostrar toast "PIN maestro actualizado"
 ```
 
 ### 4.4 Validaciones del PIN nuevo
-- Longitud mínima: configurable; propongo **mínimo 6 caracteres** (más flexible que la password de cuenta, dado que el PIN debe memorizarse fácilmente y el cifrado AES-GCM + PBKDF2 de 100k iteraciones ya lo protege contra fuerza bruta offline si el blob se filtra).
+- Longitud mínima: **6 caracteres** (más flexible que la password de cuenta, dado que el PIN debe memorizarse fácilmente y el cifrado AES-GCM + PBKDF2 de 600 000 iteraciones ya encarece mucho la fuerza bruta offline si el blob se filtra).
 - Confirmación: el campo "repetir PIN nuevo" debe coincidir.
 - El PIN nuevo **debe diferir** del actual (si no, se rechaza con mensaje y sin subir nada).
 
@@ -266,3 +274,84 @@ Cada botón abre un **sub-modal** dedicado (o reutiliza el modal de password con
 ---
 
 *Spec listo para implementación en la rama `dev`. La implementación debe seguir el orden: backend (A) → frontend (A) → frontend (B), ya que B no requiere cambios de backend.*
+
+---
+
+## 11. Notas de implementación (2026-08-20)
+
+### 11.1 Cierre de sesiones: `DELETE` en vez de `revoked = true`
+
+El §3.1 proponía marcar los refresh tokens como `revoked = true`. Al implementarlo
+apareció una interacción con la **detección de reutilización de tokens** (H-11 del
+plan de mejora), que se añadió después de redactar este spec:
+
+- H-11 asume robo cuando llega un refresh token **válido criptográficamente, presente
+  en la tabla, no caducado y ya revocado**, y responde revocando toda la familia.
+- Tras un cambio de contraseña, *todos* los tokens del usuario cumplen esa condición.
+- Resultado: el primer dispositivo obsoleto que intentase refrescar activaba la
+  detección de robo y tumbaba también la sesión recién emitida a quien acababa de
+  cambiar la contraseña. Un dispositivo olvidado podía echar al usuario legítimo.
+
+Al **borrarlos**, esos tokens dejan de existir: el intento devuelve un `401
+invalid_token` normal y no dispara la detección de robo. La semántica es la
+correcta —"esta sesión terminó porque cambiaste la contraseña", no "sospechamos un
+robo"— y de paso ayuda a mantener acotada la tabla (H-14).
+
+Cubierto por el test *"el cambio revoca los refresh tokens emitidos antes"*, que
+verifica explícitamente que la sesión nueva sobrevive al refresh fallido de un
+dispositivo viejo.
+
+### 11.2 Un 401 de credencial no debe cerrar la sesión
+
+`js/api.js` trataba **cualquier** `401` como sesión caducada: intentaba refrescar y,
+al fallar de nuevo, emitía `auth:unauthorized` y cerraba la sesión. Con este spec eso
+significaba que equivocarse al teclear la contraseña actual echaba al usuario de la
+aplicación.
+
+Ahora el cliente lee el cuerpo antes de decidir y trata como problema de sesión
+cualquier 401 **salvo** los de código `invalid_credentials`. Se excluye por lista
+negra y no por lista blanca a propósito: un código 401 desconocido sigue tratándose
+como sesión caducada, que es el comportamiento seguro.
+
+### 11.3 Verificación del PIN actual con la bóveda vacía
+
+El §4.3 verifica el PIN actual descifrando la bóveda. Eso no funciona si la bóveda
+está vacía (usuario recién registrado): no hay nada que descifrar y `loadVault`
+devuelve `[]` sin comprobar nada.
+
+`js/app.js` añade una comprobación previa contra el PIN con el que se desbloqueó la
+sesión en curso, que está en memoria. Cubre el caso de la bóveda vacía y además
+evita una ida y vuelta a la red cuando el PIN es incorrecto. La verificación
+criptográfica de `StorageModule.changeMasterPin` se mantiene como comprobación
+autoritativa cuando sí hay contenido.
+
+### 11.4 El re-cifrado exige confirmación del servidor
+
+`saveVault` estaba diseñado para no abortar ante un fallo de red: conserva la caché
+local y devuelve éxito. Para el cambio de PIN eso sería peligroso —el usuario creería
+haber cambiado el PIN mientras el servidor conserva el blob antiguo, que el PIN
+anterior sigue abriendo desde otro dispositivo—, así que `changeMasterPin` usa
+`saveVault(..., { requireRemote: true })`, que propaga el error.
+
+### 11.5 Formato del blob
+
+El re-cifrado usa el formato versionado `v2:<iteraciones>:<iv>:<ciphertext>`
+introducido en H-10, así que cambiar el PIN también actualiza los parámetros del KDF
+a los vigentes. No hizo falta ningún cambio adicional de formato.
+
+### 11.6 Limitación conocida: access tokens
+
+La revocación afecta a los refresh tokens. Un **access token** emitido antes del
+cambio sigue siendo válido hasta que caduca (`JWT_ACCESS_TTL`, 15 minutos por
+defecto), porque es stateless y no se consulta contra la base de datos. En la
+práctica, otro dispositivo conserva acceso de lectura/escritura al vault cifrado
+durante ese margen. Reducirlo exigiría una lista de revocación de access tokens
+(y una consulta a la base en cada petición), que se descarta por ahora.
+
+### 11.7 Cobertura de pruebas
+
+Ocho tests de integración nuevos (`api/test/api.test.js`) cubren los criterios de
+aceptación del §7 para la contraseña de cuenta. Los criterios del PIN se verificaron
+E2E en navegador: PIN actual incorrecto sin ningún `PUT`, cambio correcto seguido de
+bloqueo y desbloqueo (el PIN nuevo abre, el viejo no), y ausencia de cualquier PIN
+en los cuerpos de las peticiones.

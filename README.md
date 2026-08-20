@@ -17,6 +17,7 @@ Aplicación web de gestión de contraseñas de alta seguridad, con arquitectura 
 - **Defensa ante fuerza bruta**: rate limiting en dos capas (nginx + Express) por IP y por cuenta.
 - **Portapapeles efímero**: la contraseña copiada se borra automáticamente a los 30 s.
 - **Generador integrado** de contraseñas fuertes.
+- **Cambio de credenciales**: contraseña de cuenta (verificada por el backend, cierra el resto de sesiones) y PIN maestro (re-cifra la bóveda en el navegador; el PIN nunca sale del cliente).
 - **Detección de conflictos**: edición desde varios dispositivos resuelta con control de versión optimista (`409 Conflict`).
 
 ## Stack tecnológico
@@ -168,6 +169,7 @@ o abre un túnel SSH.
 - [`docs/PLAN_DOCKERIZACION.md`](docs/PLAN_DOCKERIZACION.md) — plan completo de dockerización y arquitectura.
 - [`.specs/SPEC_BACKEND.md`](.specs/SPEC_BACKEND.md) — contrato técnico de la API (endpoints, modelo de datos, seguridad).
 - [`.specs/SPEC.md`](.specs/SPEC.md) — especificación original del MVP.
+- [`.specs/SPEC_CHANGE_CREDENTIALS.md`](.specs/SPEC_CHANGE_CREDENTIALS.md) — cambio de contraseña de cuenta y de PIN maestro.
 - [`.docs/DEPLOYMENT.md`](.docs/DEPLOYMENT.md) — guía de despliegue y operación (compose, `deploy.sh`, backups, troubleshooting).
 - [`docs/PLAN_MEJORAS.md`](docs/PLAN_MEJORAS.md) — auditoría de seguridad y estado de implementación de cada hallazgo.
 
@@ -181,6 +183,7 @@ o abre un túnel SSH.
 - **Headers**: `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-*` y `Cache-Control: no-store` en la API. HSTS lo emite Apache en el vhost `:443`.
 - **Rate limiting**: `/api/auth/*` limitado por IP (nginx + Express) y por cuenta (solo intentos fallidos).
 - **Detección de reutilización de refresh tokens**: presentar un token ya rotado revoca **todas** las sesiones del usuario.
+- **Cambio de contraseña**: exige la contraseña actual y cierra todas las sesiones previas. Un access token ya emitido sigue siendo válido hasta 15 min (limitación documentada).
 - **Contenedores**: usuario no-root en la API, `no-new-privileges`, `cap_drop: ALL`, límites de memoria e imágenes fijadas por digest.
 
 ## Licencia

@@ -1,11 +1,11 @@
 # Plan de Mejora — KeyVaultJS
 
-> Estado: **Fases 0–3 implementadas** · Análisis: 2026-08-10 · Implementación: 2026-08-20 · Rama: `dev`
+> Estado: **Completado (Fases 0–4)** · Análisis: 2026-08-10 · Implementación: 2026-08-20 · Rama: `dev`
 > Documento generado a partir de una auditoría estática del código (frontend, backend, Docker y scripts de despliegue).
 >
-> **Las Fases 0, 1, 2 y 3 están implementadas y verificadas** (ver §9). La Fase 4
-> (`.specs/SPEC_CHANGE_CREDENTIALS.md`: cambio de contraseña de cuenta y de PIN
-> maestro) queda pendiente por decisión explícita de alcance.
+> **Los 23 hallazgos están resueltos** (ver §9 y §10). La Fase 4 (H-23) se
+> implementó siguiendo `.specs/SPEC_CHANGE_CREDENTIALS.md`, cuyo §11 recoge las
+> desviaciones respecto al spec original.
 
 ---
 
@@ -41,11 +41,11 @@ Sin embargo, el análisis detectó **1 hallazgo crítico que rompe el despliegue
 | H-20 | `vaultSalt` acepta mínimo 8 caracteres base64 (~6 bytes) aunque el cliente genera 16 bytes; endurecer el mínimo del schema | API | **P3 — Baja** | 3 | ✅ |
 | H-21 | Portapapeles: la contraseña copiada permanece indefinidamente; falta limpieza best-effort (~30 s) | Frontend / UX | **P3 — Baja** | 3 | ✅ |
 | H-22 | Imágenes Docker con tag flotante (`postgres:16-alpine`, `nginx:1.27-alpine`, `node:20-bookworm-slim`); sin `no-new-privileges`, `cap_drop` ni límites de recursos | Docker | **P3 — Baja** | 1 | ✅ |
-| H-23 | Spec pendiente de implementar: cambio de contraseña de cuenta y de PIN maestro (`.specs/SPEC_CHANGE_CREDENTIALS.md`) | Funcionalidad | **P2 — Media** | 4 | ⏳ Fase 4 |
+| H-23 | Spec pendiente de implementar: cambio de contraseña de cuenta y de PIN maestro (`.specs/SPEC_CHANGE_CREDENTIALS.md`) | Funcionalidad | **P2 — Media** | 4 | ✅ |
 
 Leyenda de prioridad: **P0** bloquea/expone producción, corregir antes de desplegar · **P1** alta, primera iteración post-despliegue · **P2** media, planificable · **P3** baja/oportunista.
 
-Leyenda de estado: ✅ implementado y verificado · ⏸️ evaluado y pospuesto con justificación · 📝 decisión documentada, sin cambio de código · ⏳ pendiente (fuera del alcance de esta iteración).
+Leyenda de estado: ✅ implementado y verificado · ⏸️ evaluado y pospuesto con justificación · 📝 decisión documentada, sin cambio de código.
 
 ---
 
@@ -484,6 +484,76 @@ puertos, y la emisión de certificado + HSTS (requieren un host con dominio púb
 
 ---
 
-*Fases 0–3 implementadas en la rama `dev`. Siguiente paso: Fase 4 (`H-23`), que debe
-reutilizar el formato de blob versionado introducido en H-10 para el re-cifrado del
-cambio de PIN.*
+## 10. Fase 4 — Cambio de credenciales (H-23)
+
+Implementada según `.specs/SPEC_CHANGE_CREDENTIALS.md`. El §11 de ese documento
+detalla las desviaciones; aquí queda el resumen.
+
+### 10.1 Qué se añadió
+
+| Archivo | Cambio |
+|---------|--------|
+| `api/src/schemas/authSchema.js` | `changePasswordSchema`. |
+| `api/src/controllers/authController.js` | Controlador `changePassword`. |
+| `api/src/routes/auth.js` | `POST /api/auth/change-password`, única ruta autenticada del router. |
+| `js/api.js` | Método `changePassword` **y corrección del manejo de 401** (ver 10.2). |
+| `js/auth.js` | `AuthModule.changePassword`, que reemplaza los tokens sin cerrar sesión. |
+| `js/storage.js` | `changeMasterPin` y la opción `requireRemote` de `saveVault`. |
+| `js/app.js`, `index.html`, `css/styles.css` | Dos sub-modales desde Configuración, con validación inline. |
+| `api/test/api.test.js` | 8 tests nuevos (30 en total). |
+
+El re-cifrado del PIN usa el formato `v2` de H-10, tal como preveía el plan: cambiar
+el PIN actualiza de paso los parámetros del KDF a los vigentes.
+
+### 10.2 Dos defectos encontrados al implementar
+
+**Interacción entre la revocación masiva y H-11.** El spec pedía marcar los refresh
+tokens como `revoked = true` al cambiar la contraseña. Pero un token revocado y no
+caducado es exactamente lo que H-11 interpreta como robo, así que el primer
+dispositivo obsoleto que intentase refrescar habría revocado también la sesión recién
+emitida a quien acababa de cambiar la contraseña: un dispositivo olvidado podía echar
+al usuario legítimo. Se **borran** en su lugar. Lo detectó el test de aceptación 4 del
+spec, que falló en la primera ejecución.
+
+**Un 401 de credencial cerraba la sesión.** `js/api.js` trataba cualquier `401` como
+sesión caducada: refrescaba y, al fallar de nuevo, emitía `auth:unauthorized`.
+Equivocarse al teclear la contraseña actual expulsaba al usuario de la aplicación.
+Ahora se distingue por código de error, excluyendo `invalid_credentials` por lista
+negra para que un 401 desconocido siga tratándose como sesión caducada.
+
+### 10.3 Hallazgo adicional de caché
+
+Verificando la UI en navegador se hizo evidente que `nginx` cachea el JS y el CSS de
+la aplicación una hora sin hash en el nombre, así que tras un despliegue un usuario
+puede quedarse con el HTML nuevo y el JS viejo. Al no haber bundler que añada hashes,
+ambos pasan a servirse con `Cache-Control: no-cache` (revalidación con ETag, un 304
+por archivo). Imágenes y fuentes conservan la caché de 7 días.
+
+### 10.4 Verificación
+
+- 30/30 tests de integración en verde, incluidos los 8 nuevos: cambio correcto,
+  contraseña actual incorrecta (401, sin modificar el hash), nueva igual a la actual
+  (400), nueva demasiado corta (422), sin sesión (401), revocación de tokens previos
+  con supervivencia de la sesión nueva, y comprobación de que el vault y el
+  `vaultSalt` no se ven afectados.
+- E2E en navegador para el PIN: con el PIN actual incorrecto no se emite **ningún**
+  `PUT`; con el correcto se sube un único blob `v2:600000`, y tras bloquear, el PIN
+  nuevo abre la bóveda y el viejo no. Ningún PIN aparece en el cuerpo de las
+  peticiones (Zero-Knowledge intacto).
+- E2E del cambio de contraseña: la contraseña actual incorrecta muestra un error
+  inline **sin** cerrar la sesión ni la bóveda; el cambio correcto rota los tokens,
+  mata el refresh anterior (401) y deja la bóveda intacta.
+- Consola del navegador limpia de errores y de violaciones de CSP.
+
+### 10.5 Limitación conocida
+
+La revocación alcanza a los refresh tokens, no a los access tokens: uno emitido antes
+del cambio sigue siendo válido hasta que caduca (15 minutos por defecto), porque es
+stateless. Otro dispositivo conserva acceso al vault cifrado durante ese margen.
+Cerrarlo exigiría una lista de revocación consultada en cada petición.
+
+---
+
+*Plan completado en la rama `dev`. Pendiente de validar en un servidor real:
+despliegue desde cero, restauración de un backup, escaneo externo de puertos y
+emisión de certificado + HSTS (§9.3).*

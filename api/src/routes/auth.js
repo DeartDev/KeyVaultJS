@@ -4,14 +4,17 @@ import {
   login,
   refresh,
   logout,
+  changePassword,
 } from '../controllers/authController.js';
 import {
   registerSchema,
   loginSchema,
   refreshSchema,
   logoutSchema,
+  changePasswordSchema,
 } from '../schemas/authSchema.js';
 import { authIpLimiter, loginEmailLimiter } from '../middleware/rateLimit.js';
+import { requireAuth } from '../middleware/auth.js';
 import { validationError } from '../utils/httpErrors.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
@@ -42,5 +45,14 @@ router.post('/login', validate(loginSchema), loginEmailLimiter, asyncHandler(log
 router.post('/refresh', validate(refreshSchema), asyncHandler(refresh));
 // H-19: logoutSchema estaba definido pero no se aplicaba.
 router.post('/logout', validate(logoutSchema), asyncHandler(logout));
+
+// Única ruta autenticada del router de auth: requireAuth va ANTES de validate
+// para que una petición sin token responda 401 y no 422.
+router.post(
+  '/change-password',
+  requireAuth,
+  validate(changePasswordSchema),
+  asyncHandler(changePassword),
+);
 
 export default router;

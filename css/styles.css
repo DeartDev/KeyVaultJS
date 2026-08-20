@@ -748,3 +748,82 @@ body {
 .btn.btn-danger {
     background: var(--danger-color);
 }
+
+/* --- Cambio de credenciales (contraseña de cuenta / PIN maestro) --- */
+.settings-credentials {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Fila de ajustes: etiqueta a la izquierda, chevron a la derecha. */
+.btn.btn-settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    text-align: left;
+    font-weight: 500;
+}
+
+.btn-settings-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-settings-label .icon {
+    color: var(--secondary-color);
+}
+
+.btn-settings-row > .icon {
+    color: var(--text-secondary);
+    opacity: 0.7;
+}
+
+/* Texto explicativo bajo el título de un modal. */
+.modal-note {
+    margin: -5px 0 20px;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+/* Aviso destacado: el PIN maestro no se puede recuperar. */
+.modal-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: -5px 0 20px;
+    padding: 12px 14px;
+    border: 1px solid var(--danger-color);
+    border-radius: 10px;
+    background: rgba(239, 68, 68, 0.08);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--text-primary);
+}
+
+.modal-warning .icon {
+    flex-shrink: 0;
+    margin-top: 2px;
+    font-size: 1.1rem;
+    color: var(--danger-color);
+}
+
+/* Validación inline de los formularios de credenciales. */
+.form-hint {
+    min-height: 1.2em;
+    margin: -10px 0 0;
+    font-size: 0.85rem;
+    line-height: 1.2;
+}
+
+.form-hint.error {
+    color: var(--danger-color);
+}
+
+.form-hint.info {
+    color: var(--text-secondary);
+}

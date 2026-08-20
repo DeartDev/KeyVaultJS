@@ -59,6 +59,17 @@ const AuthModule = (() => {
         return data.user;
     };
 
+    /**
+     * Cambia la contraseña de cuenta. El backend revoca TODAS las sesiones y
+     * devuelve un par nuevo para este dispositivo, así que aquí no hay que
+     * cerrar sesión: basta con reemplazar los tokens.
+     */
+    const changePassword = async ({ currentPassword, newPassword }) => {
+        const data = await ApiClient.changePassword(currentPassword, newPassword);
+        ApiClient.setTokens(data);
+        return true;
+    };
+
     const logout = async () => {
         try { await ApiClient.logout(); } catch { /* ignore */ }
         ApiClient.clearTokens();
@@ -74,5 +85,5 @@ const AuthModule = (() => {
 
     loadStoredUser();
 
-    return { register, login, logout, getUser, isLoggedIn };
+    return { register, login, logout, changePassword, getUser, isLoggedIn };
 })();

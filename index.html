@@ -111,6 +111,18 @@
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
             </symbol>
+            <symbol id="i-key" viewBox="0 0 24 24">
+                <circle cx="7.5" cy="15.5" r="4.5" />
+                <path d="M10.7 12.3 21 2" />
+                <path d="m17 6 3 3" />
+                <path d="m14 9 3 3" />
+            </symbol>
+            <symbol id="i-shield" viewBox="0 0 24 24">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </symbol>
+            <symbol id="i-chevron-right" viewBox="0 0 24 24">
+                <polyline points="9 18 15 12 9 6" />
+            </symbol>
         </defs>
     </svg>
 
@@ -274,6 +286,23 @@
                     <small>0 = desactivado. La bóveda se bloquea tras inactividad.</small>
                 </div>
 
+                <div class="settings-section settings-credentials">
+                    <button type="button" class="btn btn-secondary btn-settings-row" id="btn-open-change-password">
+                        <span class="btn-settings-label">
+                            <svg class="icon" aria-hidden="true"><use href="#i-key"></use></svg>
+                            Cambiar contraseña de cuenta
+                        </span>
+                        <svg class="icon" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-settings-row" id="btn-open-change-pin">
+                        <span class="btn-settings-label">
+                            <svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg>
+                            Cambiar PIN maestro
+                        </span>
+                        <svg class="icon" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+                    </button>
+                </div>
+
                 <div class="settings-section settings-danger">
                     <button type="button" class="btn btn-secondary" id="btn-settings-logout">
                         <svg class="icon" aria-hidden="true"><use href="#i-logout"></use></svg> Cerrar sesión de cuenta
@@ -284,6 +313,77 @@
                     <button type="button" class="btn btn-secondary" id="btn-cancel-settings">Cancelar</button>
                     <button type="button" class="btn btn-primary" id="btn-save-settings">Guardar</button>
                 </div>
+            </div>
+        </div>
+
+
+        <!-- Modal: Cambiar contraseña de cuenta -->
+        <div id="change-password-modal" class="modal">
+            <div class="modal-content glass-card">
+                <div class="modal-header">
+                    <h2>Cambiar contraseña de cuenta</h2>
+                    <span class="close-btn" id="close-change-password">&times;</span>
+                </div>
+                <p class="modal-note">
+                    Es la contraseña con la que inicias sesión. No afecta a tu bóveda:
+                    el PIN maestro y las credenciales guardadas no cambian.
+                </p>
+                <form id="change-password-form">
+                    <div class="input-group">
+                        <label for="cp-current">Contraseña actual</label>
+                        <input type="password" id="cp-current" required autocomplete="current-password">
+                    </div>
+                    <div class="input-group">
+                        <label for="cp-new">Nueva contraseña (mín. 12 caracteres)</label>
+                        <input type="password" id="cp-new" required autocomplete="new-password">
+                    </div>
+                    <div class="input-group">
+                        <label for="cp-repeat">Repetir nueva contraseña</label>
+                        <input type="password" id="cp-repeat" required autocomplete="new-password">
+                    </div>
+                    <p class="form-hint" id="cp-hint" role="alert" aria-live="polite"></p>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" id="cp-cancel">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="cp-save">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal: Cambiar PIN maestro -->
+        <div id="change-pin-modal" class="modal">
+            <div class="modal-content glass-card">
+                <div class="modal-header">
+                    <h2>Cambiar PIN maestro</h2>
+                    <span class="close-btn" id="close-change-pin">&times;</span>
+                </div>
+                <p class="modal-warning">
+                    <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
+                    <span>
+                        Si olvidas tu PIN maestro <strong>no podrás recuperar tu bóveda</strong>.
+                        Guárdalo en un lugar seguro. Otros dispositivos con la sesión abierta
+                        tendrán que volver a desbloquear con el PIN nuevo.
+                    </span>
+                </p>
+                <form id="change-pin-form">
+                    <div class="input-group">
+                        <label for="mp-current">PIN maestro actual</label>
+                        <input type="password" id="mp-current" required autocomplete="current-password">
+                    </div>
+                    <div class="input-group">
+                        <label for="mp-new">PIN nuevo (mín. 6 caracteres)</label>
+                        <input type="password" id="mp-new" required autocomplete="new-password">
+                    </div>
+                    <div class="input-group">
+                        <label for="mp-repeat">Repetir PIN nuevo</label>
+                        <input type="password" id="mp-repeat" required autocomplete="new-password">
+                    </div>
+                    <p class="form-hint" id="mp-hint" role="alert" aria-live="polite"></p>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" id="mp-cancel">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="mp-save">Guardar</button>
+                    </div>
+                </form>
             </div>
         </div>
 

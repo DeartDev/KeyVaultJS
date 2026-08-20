@@ -12,6 +12,7 @@ import {
 import {
   conflict,
   unauthorized,
+  badRequest,
 } from '../utils/httpErrors.js';
 
 const publicUser = (u) => ({ id: u.id, email: u.email, vaultSalt: u.vault_salt });
@@ -166,4 +167,67 @@ export const logout = async (req, res) => {
 
   await revokeRefreshToken(refreshToken);
   res.status(204).end();
+};
+
+/**
+ * POST /api/auth/change-password  (requiere sesión activa)
+ *
+ * Cambia la contraseña de CUENTA. No tiene ninguna relación con el PIN maestro:
+ * el PIN cifra la bóveda en el navegador y el backend no lo conoce ni puede
+ * cambiarlo. Cambiar la contraseña de cuenta NO invalida la bóveda.
+ */
+export const changePassword = async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  // 400 (y no 422) por decisión del spec: la petición está bien formada, lo que
+  // no tiene sentido es la operación.
+  if (newPassword === currentPassword) {
+    throw badRequest('The new password must be different from the current one');
+  }
+
+  const { rows } = await query(
+    `SELECT id, email, password_hash, vault_salt FROM users WHERE id = $1`,
+    [req.user.id],
+  );
+  if (rows.length === 0) {
+    throw unauthorized('invalid_token', 'User no longer exists');
+  }
+  const user = rows[0];
+
+  const ok = await comparePassword(currentPassword, user.password_hash);
+  if (!ok) {
+    throw unauthorized('invalid_credentials', 'Current password is incorrect');
+  }
+
+  const passwordHash = await hashPassword(newPassword);
+
+  await withTransaction(async (client) => {
+    await client.query(
+      `UPDATE users SET password_hash = $1 WHERE id = $2`,
+      [passwordHash, user.id],
+    );
+    // Cierre masivo de sesiones en la MISMA transacción que el cambio de hash:
+    // si algo falla, no queda una contraseña nueva con sesiones viejas vivas.
+    //
+    // Se BORRAN en lugar de marcarlos revoked=true (el spec proponía lo
+    // segundo). Motivo: un token revocado pero no caducado activa la detección
+    // de reutilización (H-11), que asume robo y revoca toda la familia. Con
+    // revoked=true, el primer dispositivo obsoleto que intentara refrescar
+    // habría tumbado también la sesión recién emitida a quien cambió la
+    // contraseña. Borrándolos, esos tokens simplemente dejan de existir y dan
+    // un 401 normal, que es la semántica correcta: la sesión terminó porque el
+    // usuario cambió su contraseña, no porque se sospeche un robo.
+    await client.query(
+      `DELETE FROM refresh_tokens WHERE user_id = $1`,
+      [user.id],
+    );
+  });
+
+  // El par nuevo se emite DESPUÉS de la revocación; al revés quedaría revocado
+  // al instante y el cliente que hizo el cambio tendría que volver a entrar.
+  const tokens = await issueTokenPair(user);
+
+  req.log?.info({ userId: user.id }, 'account password changed: all previous sessions closed');
+
+  res.status(200).json(tokens);
 };
