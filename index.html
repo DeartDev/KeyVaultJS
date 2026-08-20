@@ -7,31 +7,17 @@
     <link rel="icon" href="keyvault.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="keyvault.svg">
     <link rel="stylesheet" href="css/styles.css">
-    <!-- Font Awesome para iconos -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Manifest y PWA -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#6366f1">
 
-    <!-- Anti-FOUC: aplica el tema antes del render para evitar parpadeo. -->
-    <script>
-        (function () {
-            try {
-                var stored = localStorage.getItem('pm_theme') || 'system';
-                var theme = stored;
-                if (stored === 'system') {
-                    theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-                }
-                document.documentElement.dataset.theme = theme;
-            } catch (e) {
-                document.documentElement.dataset.theme = 'dark';
-            }
-        })();
-    </script>
+    <!-- Anti-FOUC: aplica el tema antes del render para evitar parpadeo.
+         En archivo propio (no inline) para permitir CSP `script-src 'self'`. -->
+    <script src="js/theme-init.js"></script>
 </head>
 <body>
     <!-- Sprite SVG con el logo de KeyVault (reutilizable via <use>). -->
-    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <svg class="svg-sprite" width="0" height="0" aria-hidden="true" focusable="false">
         <defs>
             <linearGradient id="kv-shield-grad" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stop-color="#00F2FE" />
@@ -47,6 +33,95 @@
                 <rect fill="url(#kv-lock-grad)" x="23" y="27" width="18" height="15" rx="3" />
                 <circle class="kv-keyhole" cx="32" cy="32.5" r="2" />
                 <path class="kv-keyhole" d="M31.2 32.5 L32.8 32.5 L33.2 38 L30.8 38 Z" />
+            </symbol>
+
+            <!-- ==========================================================
+                 Sprite de iconos propio (sustituye a Font Awesome, H-07).
+                 Trazo de 24x24, sin relleno: heredan color y tamaño del
+                 contexto vía `currentColor` y `width/height: 1em` (.icon).
+                 ========================================================== -->
+            <symbol id="i-mail" viewBox="0 0 24 24">
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <polyline points="22,6 12,13 2,6" />
+            </symbol>
+            <symbol id="i-lock" viewBox="0 0 24 24">
+                <rect x="3" y="11" width="18" height="11" rx="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </symbol>
+            <symbol id="i-theme" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 2a10 10 0 0 0 0 20z" fill="currentColor" stroke="none" />
+            </symbol>
+            <symbol id="i-settings" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </symbol>
+            <symbol id="i-logout" viewBox="0 0 24 24">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+            </symbol>
+            <symbol id="i-search" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </symbol>
+            <symbol id="i-plus" viewBox="0 0 24 24">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+            </symbol>
+            <symbol id="i-copy" viewBox="0 0 24 24">
+                <rect x="9" y="9" width="13" height="13" rx="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </symbol>
+            <symbol id="i-edit" viewBox="0 0 24 24">
+                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+            </symbol>
+            <symbol id="i-trash" viewBox="0 0 24 24">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <line x1="10" y1="11" x2="10" y2="17" />
+                <line x1="14" y1="11" x2="14" y2="17" />
+            </symbol>
+            <symbol id="i-alert" viewBox="0 0 24 24">
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+            </symbol>
+            <symbol id="i-eye" viewBox="0 0 24 24">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+            </symbol>
+            <symbol id="i-eye-off" viewBox="0 0 24 24">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                <line x1="1" y1="1" x2="23" y2="23" />
+            </symbol>
+            <symbol id="i-wand" viewBox="0 0 24 24">
+                <path d="M3 21 14 10" />
+                <path d="M17 3V1" />
+                <path d="M17 9V7" />
+                <path d="M20 5h2" />
+                <path d="M12 5h2" />
+                <path d="M6 15v-2" />
+                <path d="M4 17H2" />
+            </symbol>
+            <symbol id="i-folder" viewBox="0 0 24 24">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+            </symbol>
+            <symbol id="i-clock" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+            </symbol>
+            <symbol id="i-key" viewBox="0 0 24 24">
+                <circle cx="7.5" cy="15.5" r="4.5" />
+                <path d="M10.7 12.3 21 2" />
+                <path d="m17 6 3 3" />
+                <path d="m14 9 3 3" />
+            </symbol>
+            <symbol id="i-shield" viewBox="0 0 24 24">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </symbol>
+            <symbol id="i-chevron-right" viewBox="0 0 24 24">
+                <polyline points="9 18 15 12 9 6" />
             </symbol>
         </defs>
     </svg>
@@ -68,18 +143,18 @@
 
                 <form id="auth-form">
                     <div class="input-group">
-                        <i class="fa-solid fa-envelope"></i>
+                        <svg class="icon" aria-hidden="true"><use href="#i-mail"></use></svg>
                         <input type="email" id="auth-email" placeholder="Correo electrónico" required autocomplete="email">
                     </div>
                     <div class="input-group">
-                        <i class="fa-solid fa-lock"></i>
+                        <svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg>
                         <input type="password" id="auth-password" placeholder="Contraseña de cuenta (mín. 12 caracteres)" required autocomplete="current-password">
                     </div>
                     <button type="submit" class="btn btn-primary" id="auth-btn">Entrar</button>
                 </form>
 
                 <button type="button" id="quick-theme-toggle-auth" class="btn-text theme-toggle" title="Cambiar tema">
-                    <i class="fa-solid fa-circle-half-stroke"></i> <span>Tema</span>
+                    <svg class="icon" aria-hidden="true"><use href="#i-theme"></use></svg> <span>Tema</span>
                 </button>
             </div>
         </section>
@@ -95,7 +170,7 @@
 
                 <form id="pin-form">
                     <div class="input-group">
-                        <i class="fa-solid fa-lock"></i>
+                        <svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg>
                         <input type="password" id="master-pin" placeholder="PIN o Contraseña Maestra" required autocomplete="current-password">
                     </div>
                     <button type="submit" class="btn btn-primary" id="pin-btn">Desbloquear</button>
@@ -113,16 +188,16 @@
                         <span>KeyVault</span>
                     </h1>
                     <div class="header-actions">
-                        <button id="btn-settings" class="btn-icon" title="Configuración"><i class="fa-solid fa-gear"></i></button>
-                        <button id="btn-lock" class="btn-icon" title="Bloquear Bóveda"><i class="fa-solid fa-lock"></i></button>
-                        <button id="btn-logout-account" class="btn-icon" title="Cerrar sesión"><i class="fa-solid fa-right-from-bracket"></i></button>
+                        <button id="btn-settings" class="btn-icon" title="Configuración"><svg class="icon" aria-hidden="true"><use href="#i-settings"></use></svg></button>
+                        <button id="btn-lock" class="btn-icon" title="Bloquear Bóveda"><svg class="icon" aria-hidden="true"><use href="#i-lock"></use></svg></button>
+                        <button id="btn-logout-account" class="btn-icon" title="Cerrar sesión"><svg class="icon" aria-hidden="true"><use href="#i-logout"></use></svg></button>
                     </div>
                 </div>
             </header>
 
             <main class="dashboard-content">
                 <div class="search-bar glass-card">
-                    <i class="fa-solid fa-search"></i>
+                    <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
                     <input type="text" id="search-input" placeholder="Buscar plataforma...">
                 </div>
 
@@ -130,7 +205,7 @@
                     <!-- Los items se renderizan aquí dinámicamente -->
                 </div>
 
-                <button id="btn-add" class="fab"><i class="fa-solid fa-plus"></i></button>
+                <button id="btn-add" class="fab"><svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg></button>
             </main>
         </section>
 
@@ -158,8 +233,8 @@
                         <label for="entry-password">Contraseña</label>
                         <div class="password-input-wrapper">
                             <input type="password" id="entry-password" placeholder="••••••••" required>
-                            <button type="button" class="btn-icon toggle-password" id="toggle-entry-pwd" title="Mostrar contraseña"><i class="fa-solid fa-eye"></i></button>
-                            <button type="button" class="btn-icon btn-generate" id="btn-generate-pwd" title="Generar Contraseña Segura"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
+                            <button type="button" class="btn-icon toggle-password" id="toggle-entry-pwd" title="Mostrar contraseña"><svg class="icon" aria-hidden="true"><use href="#i-eye"></use></svg></button>
+                            <button type="button" class="btn-icon btn-generate" id="btn-generate-pwd" title="Generar Contraseña Segura"><svg class="icon" aria-hidden="true"><use href="#i-wand"></use></svg></button>
                         </div>
                     </div>
 
@@ -173,13 +248,13 @@
 
         <!-- Modal de Confirmación para Borrar -->
         <div id="confirm-modal" class="modal">
-            <div class="modal-content glass-card" style="max-width: 350px; text-align: center;">
-                <i class="fa-solid fa-triangle-exclamation" style="font-size: 3rem; color: var(--danger-color); margin-bottom: 15px;"></i>
+            <div class="modal-content glass-card modal-confirm">
+                <svg class="icon icon-alert-lg" aria-hidden="true"><use href="#i-alert"></use></svg>
                 <h3>¿Eliminar Credencial?</h3>
-                <p style="color: var(--text-secondary); margin: 10px 0 20px;">Esta acción no se puede deshacer.</p>
+                <p class="modal-confirm-text">Esta acción no se puede deshacer.</p>
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary" id="btn-cancel-delete">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="btn-confirm-delete" style="background: var(--danger-color);">Eliminar</button>
+                    <button type="button" class="btn btn-primary btn-danger" id="btn-confirm-delete">Eliminar</button>
                 </div>
             </div>
         </div>
@@ -194,7 +269,7 @@
 
                 <div class="settings-section">
                     <label for="theme-select">
-                        <i class="fa-solid fa-circle-half-stroke"></i> Tema
+                        <svg class="icon" aria-hidden="true"><use href="#i-theme"></use></svg> Tema
                     </label>
                     <select id="theme-select">
                         <option value="system">Automático (sistema)</option>
@@ -205,15 +280,32 @@
 
                 <div class="settings-section">
                     <label for="autolock-input">
-                        <i class="fa-solid fa-clock"></i> Auto-bloqueo (minutos)
+                        <svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg> Auto-bloqueo (minutos)
                     </label>
                     <input type="number" id="autolock-input" min="0" max="120" step="1" value="5">
                     <small>0 = desactivado. La bóveda se bloquea tras inactividad.</small>
                 </div>
 
+                <div class="settings-section settings-credentials">
+                    <button type="button" class="btn btn-secondary btn-settings-row" id="btn-open-change-password">
+                        <span class="btn-settings-label">
+                            <svg class="icon" aria-hidden="true"><use href="#i-key"></use></svg>
+                            Cambiar contraseña de cuenta
+                        </span>
+                        <svg class="icon" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-settings-row" id="btn-open-change-pin">
+                        <span class="btn-settings-label">
+                            <svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg>
+                            Cambiar PIN maestro
+                        </span>
+                        <svg class="icon" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+                    </button>
+                </div>
+
                 <div class="settings-section settings-danger">
                     <button type="button" class="btn btn-secondary" id="btn-settings-logout">
-                        <i class="fa-solid fa-right-from-bracket"></i> Cerrar sesión de cuenta
+                        <svg class="icon" aria-hidden="true"><use href="#i-logout"></use></svg> Cerrar sesión de cuenta
                     </button>
                 </div>
 
@@ -221,6 +313,77 @@
                     <button type="button" class="btn btn-secondary" id="btn-cancel-settings">Cancelar</button>
                     <button type="button" class="btn btn-primary" id="btn-save-settings">Guardar</button>
                 </div>
+            </div>
+        </div>
+
+
+        <!-- Modal: Cambiar contraseña de cuenta -->
+        <div id="change-password-modal" class="modal">
+            <div class="modal-content glass-card">
+                <div class="modal-header">
+                    <h2>Cambiar contraseña de cuenta</h2>
+                    <span class="close-btn" id="close-change-password">&times;</span>
+                </div>
+                <p class="modal-note">
+                    Es la contraseña con la que inicias sesión. No afecta a tu bóveda:
+                    el PIN maestro y las credenciales guardadas no cambian.
+                </p>
+                <form id="change-password-form">
+                    <div class="input-group">
+                        <label for="cp-current">Contraseña actual</label>
+                        <input type="password" id="cp-current" required autocomplete="current-password">
+                    </div>
+                    <div class="input-group">
+                        <label for="cp-new">Nueva contraseña (mín. 12 caracteres)</label>
+                        <input type="password" id="cp-new" required autocomplete="new-password">
+                    </div>
+                    <div class="input-group">
+                        <label for="cp-repeat">Repetir nueva contraseña</label>
+                        <input type="password" id="cp-repeat" required autocomplete="new-password">
+                    </div>
+                    <p class="form-hint" id="cp-hint" role="alert" aria-live="polite"></p>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" id="cp-cancel">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="cp-save">Guardar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal: Cambiar PIN maestro -->
+        <div id="change-pin-modal" class="modal">
+            <div class="modal-content glass-card">
+                <div class="modal-header">
+                    <h2>Cambiar PIN maestro</h2>
+                    <span class="close-btn" id="close-change-pin">&times;</span>
+                </div>
+                <p class="modal-warning">
+                    <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
+                    <span>
+                        Si olvidas tu PIN maestro <strong>no podrás recuperar tu bóveda</strong>.
+                        Guárdalo en un lugar seguro. Otros dispositivos con la sesión abierta
+                        tendrán que volver a desbloquear con el PIN nuevo.
+                    </span>
+                </p>
+                <form id="change-pin-form">
+                    <div class="input-group">
+                        <label for="mp-current">PIN maestro actual</label>
+                        <input type="password" id="mp-current" required autocomplete="current-password">
+                    </div>
+                    <div class="input-group">
+                        <label for="mp-new">PIN nuevo (mín. 6 caracteres)</label>
+                        <input type="password" id="mp-new" required autocomplete="new-password">
+                    </div>
+                    <div class="input-group">
+                        <label for="mp-repeat">Repetir PIN nuevo</label>
+                        <input type="password" id="mp-repeat" required autocomplete="new-password">
+                    </div>
+                    <p class="form-hint" id="mp-hint" role="alert" aria-live="polite"></p>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" id="mp-cancel">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="mp-save">Guardar</button>
+                    </div>
+                </form>
             </div>
         </div>
 
@@ -235,14 +398,6 @@
     <script src="js/storage.js" defer></script>
     <script src="js/generator.js" defer></script>
     <script src="js/app.js" defer></script>
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./service-worker.js')
-                    .then(reg => console.log('Service Worker registrado', reg))
-                    .catch(err => console.error('Error registrando Service Worker', err));
-            });
-        }
-    </script>
+    <script src="js/sw-register.js" defer></script>
 </body>
 </html>

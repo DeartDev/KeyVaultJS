@@ -1,77 +1,188 @@
-# Guía de Despliegue y Replicación
+# Guía de despliegue y operación
 
-Este documento explica paso a paso cómo poner a funcionar este proyecto en un entorno local y cómo desplegarlo a producción.
+KeyVaultJS se despliega como tres contenedores (`web` nginx · `api` Node/Express ·
+`db` PostgreSQL) orquestados con Docker Compose. En producción, Apache termina TLS
+y hace de proxy inverso hacia el contenedor `web`, que solo escucha en loopback.
 
-Al ser una aplicación **Frontend pura (estática)** sin necesidad de backend o base de datos externa, su despliegue y replicación son extremadamente sencillos.
+```
+Internet ──► Apache :443 (TLS) ──► 127.0.0.1:8084 ──► nginx (web) ──► api:3000 ──► db:5432
+                                                                       └── red interna keyvault_net
+```
 
-## 1. Replicación Local (Desarrollo y Pruebas)
+**El único puerto alcanzable desde fuera debe ser el de Apache (80/443).**
+Ni PostgreSQL ni el contenedor `web` publican nada al exterior.
 
-Para ejecutar este proyecto en tu propia máquina, solo necesitas servir los archivos estáticos. 
+---
 
-### Opción A: Usando Live Server (Recomendado)
-1. Instala el editor [Visual Studio Code](https://code.visualstudio.com/).
-2. Abre la carpeta del proyecto en VS Code.
-3. Ve a la sección de Extensiones y busca "Live Server" de Ritwick Dey. Instálala.
-4. Haz clic derecho sobre el archivo `index.html` y selecciona **"Open with Live Server"**.
-5. Se abrirá una pestaña en tu navegador en una dirección como `http://127.0.0.1:5500/index.html`.
+## 1. Ficheros de compose
 
-### Opción B: Usando Node.js / npx
-1. Asegúrate de tener Node.js instalado.
-2. Abre tu terminal en el directorio del proyecto.
-3. Ejecuta el siguiente comando para iniciar un servidor estático ligero:
-   ```bash
-   npx serve .
-   ```
-4. Abre la dirección web que se muestra en tu terminal (generalmente `http://localhost:3000`).
+La configuración está partida en una base sin puertos y dos overrides, para que
+producción no pueda exponer nada por accidente:
 
-### Opción C: Usando Python
-Si tienes Python instalado, puedes levantar un servidor temporal nativo:
-1. Abre tu terminal en el directorio del proyecto.
-2. Ejecuta:
-   ```bash
-   python -m http.server 8000
-   ```
-3. Visita `http://localhost:8000`.
+| Archivo | Contenido |
+|---------|-----------|
+| `deploy/docker-compose.yml` | Base. **Ningún** `ports:`. Imágenes fijadas por digest, `no-new-privileges`, `cap_drop`, límites de memoria y healthchecks. |
+| `deploy/docker-compose.local.yml` | Override de desarrollo: `web` en `8084:80` y `db` en `127.0.0.1:5433:5432` para clientes GUI. |
+| `deploy/docker-compose.prod.yml` | Override de producción: `web` en `127.0.0.1:8084:80`. `db` sigue sin publicar. |
 
-*(Nota: Aunque abrir directamente el archivo `index.html` con doble clic funcionará para la mayoría de las funcionalidades, el Service Worker (necesario para el comportamiento PWA y offline) requiere estrictamente ser servido desde un entorno `http://` (localhost) o `https://` para registrarse correctamente por razones de seguridad del navegador).*
+> Docker escribe sus reglas directamente en la cadena `DOCKER` de iptables y
+> **puentea UFW/firewalld**: cerrar un puerto en el firewall del host NO protege
+> un `ports:` publicado. La única defensa fiable es no publicarlo, o publicarlo
+> en `127.0.0.1`. Por eso `deploy.sh` aborta si detecta lo contrario.
 
-## 2. Despliegue a Producción (Hosting)
+---
 
-Puedes alojar este proyecto permanentemente en cualquier servicio de hosting estático de forma gratuita (Vercel, Netlify, GitHub Pages, o Firebase Hosting).
+## 2. `deploy/deploy.sh`
 
-### Opción 1: Despliegue con Vercel o Netlify (Recomendado)
-1. Sube esta carpeta a un repositorio en **GitHub**, **GitLab** o **Bitbucket**.
-2. Entra en [Vercel](https://vercel.com/) o [Netlify](https://www.netlify.com/) e inicia sesión vinculando tu cuenta de GitHub.
-3. Haz clic en "Añadir Nuevo Sitio" (o "Add new site").
-4. Autoriza a la plataforma a leer tus repositorios y selecciona el repositorio del Gestor de Contraseñas.
-5. Los ajustes predeterminados de "Build" son correctos (no es necesario ejecutar ningún comando de build ya que es Vanilla JS).
-6. Haz clic en **Deploy**. En menos de 1 minuto tendrás una URL pública, rápida y con un certificado SSL seguro instalado.
+Script único, **no interactivo**, idempotente y con red de seguridad.
 
-### Opción 2: Despliegue en GitHub Pages
-1. Sube tu proyecto a un repositorio en GitHub.
-2. Ve a los **Settings** (Configuración) de ese repositorio en la web de GitHub.
-3. En la barra lateral izquierda, busca y haz clic en **Pages**.
-4. En "Source", selecciona la rama principal (suele ser `main` o `master`) y la carpeta `/ (root)`.
-5. Haz clic en **Save**. En un par de minutos, tu sitio estará disponible globalmente en `https://[tu-usuario].github.io/[tu-repositorio]`.
+```bash
+# Producción, primera vez (configura Apache + Let's Encrypt)
+sudo bash deploy/deploy.sh --prod --domain keyvault.example.com --email admin@example.com
 
-## 3. Configuración Adicional: Sincronización con Google Drive (Avanzado)
+# Producción, actualizaciones posteriores
+sudo bash deploy/deploy.sh --prod
 
-Si deseas activar el botón de sincronización (para guardar copias de seguridad de tu bóveda cifrada en Google Drive) a partir del código esqueleto en `js/gdrive-sync.js`, debes seguir estos pasos para autorizar tu aplicación ante Google.
+# Desarrollo local
+bash deploy/deploy.sh --local
 
-1. Ve a la [Google Cloud Console](https://console.cloud.google.com/).
-2. Crea un **Nuevo Proyecto**.
-3. En el menú lateral izquierdo ve a "APIs y Servicios" -> "Pantalla de consentimiento de OAuth".
-   * Selecciona "Externo" y llena los datos obligatorios requeridos (nombre de la aplicación, tu correo electrónico de contacto).
-4. Ve a "Credenciales" en el menú izquierdo y haz clic en "Crear Credenciales" -> **ID de cliente de OAuth**.
-5. Selecciona el tipo de aplicación como **Aplicación Web**.
-6. En la sección **Orígenes de JavaScript autorizados**, debes añadir las URLs exactas desde donde vas a ejecutar la aplicación:
-   * Si pruebas en local con Live Server: `http://127.0.0.1:5500`
-   * Si lo desplegaste en Vercel/Netlify: Tu dominio público (ej. `https://mi-gestor-claves.vercel.app`)
-7. Haz clic en "Crear". Aparecerá una ventana con un **Client ID**; cópialo.
-8. En tu código fuente, abre `js/gdrive-sync.js` y reemplaza la cadena `'TU_CLIENT_ID_AQUI.apps.googleusercontent.com'` por tu Client ID copiado.
-9. Finalmente, para que Google Identity funcione, en el archivo `index.html` (preferiblemente dentro de `<head>`), deberás añadir el script oficial de Google:
-   ```html
-   <script src="https://accounts.google.com/gsi/client" async defer></script>
-   ```
+# Solo diagnóstico, sin tocar nada
+bash deploy/deploy.sh --check
 
-*Para completar la lógica en `gdrive-sync.js`, deberás revisar la documentación de la **API de Google Drive v3 para JavaScript** e implementar funciones para subir (POST) y descargar (GET) el string cifrado contenido en tu localStorage.*
+# Volver al despliegue anterior
+sudo bash deploy/deploy.sh --rollback
+```
+
+| Flag | Efecto |
+|------|--------|
+| `--prod` / `--local` | Elige el override de compose. Obligatorio en el primer despliegue; después se recuerda en `deploy/.deploy-state/mode`. |
+| `--domain`, `--email` | Configura Apache + certbot sin prompts. Sin `--domain` no se toca Apache. |
+| `--no-pull` | Omite `git pull` (hotfix local, o CI que ya hizo checkout). |
+| `--skip-backup` | Omite el backup previo. Solo para el primer despliegue. |
+| `--rollback` | Restaura las imágenes `:previous` y explica cómo restaurar la base. |
+| `--check` | Dependencias, estado de contenedores, puertos, salud de la API y permisos del `.env`. |
+
+### Qué hace, en orden
+
+1. **Preflight** — verifica `git`, `docker`, plugin `compose`, `openssl`, `curl`, `ss`;
+   comprueba que **existan migraciones** en `api/src/db/migrations/` (si `.gitignore`
+   volviera a excluirlas, el despliegue aborta aquí en vez de dejar la API sin esquema);
+   exige root en `--prod`.
+2. **Código** — `git pull --ff-only`, abortando si hay cambios sin commitear.
+3. **Secrets** — crea `deploy/.env` con secrets generados (`openssl rand`) si no existe,
+   aplica **siempre** `chmod 600` y aborta si alguna variable sigue con el valor de ejemplo.
+4. **Backup previo** (`--prod`) — `pg_dump` comprimido a `/var/backups/keyvaultjs/pre-deploy-<ts>.sql.gz`.
+5. **Build & up** — valida el compose, etiqueta las imágenes actuales como `:previous`,
+   reconstruye y levanta. Espera a que `db` esté *healthy* leyendo `docker inspect`
+   (no parseando la salida de `compose ps`, cuyo formato cambia entre versiones).
+6. **Migraciones** — si fallan en producción, indica cómo restaurar el backup del paso 4.
+7. **Verificaciones** — `/api/health` con reintentos, y **falla el despliegue** si
+   PostgreSQL aparece publicado o si `web` escucha en `0.0.0.0` en modo `--prod`.
+8. **Apache + TLS** — vhost, certbot y HSTS en el vhost `:443`.
+9. **Operación** — instala el cron de backup diario y el de purga de `refresh_tokens`,
+   y limpia imágenes huérfanas.
+
+`deploy/install.sh` se mantiene como wrapper deprecado que redirige a `deploy.sh`.
+
+---
+
+## 3. Backups y restauración
+
+```bash
+sudo bash deploy/backup.sh                       # dump + rotación
+sudo bash deploy/backup.sh --tag pre-migracion   # dump etiquetado
+sudo bash deploy/backup.sh --restore /var/backups/keyvaultjs/daily-20260820-031500.sql.gz
+```
+
+- Destino: `/var/backups/keyvaultjs/` (`0700`), dumps a `0600`.
+- Retención: 14 días (`KEYVAULT_BACKUP_RETENTION_DAYS`).
+- Cron diario a las 03:15, instalado por `deploy.sh --prod`.
+- La restauración pide confirmación explícita escribiendo `RESTAURAR`.
+
+Los dumps contienen blobs cifrados y hashes bcrypt, nunca contraseñas en claro.
+Aun así **trátalos como material sensible**: quien tenga un dump puede atacar
+offline los PIN maestros.
+
+> **Prueba la restauración al menos una vez.** Un backup no verificado no es un backup.
+
+---
+
+## 4. Desarrollo local
+
+```bash
+bash deploy/deploy.sh --local
+# App:  http://localhost:8084
+```
+
+Comandos útiles:
+
+```bash
+CO="docker compose --env-file deploy/.env -f deploy/docker-compose.yml -f deploy/docker-compose.local.yml"
+
+$CO logs -f api                                  # logs
+$CO exec api npm test                            # suite de integración
+$CO exec api node src/utils/migrations.js status # estado de migraciones
+$CO exec api node src/utils/purgeTokens.js       # purga manual de refresh_tokens
+$CO exec db psql -U keyvault                     # consola SQL
+```
+
+### Datos de prueba
+
+```bash
+node deploy/seed-test-user.mjs --purge
+```
+
+Borra **todos** los usuarios y crea uno nuevo con la bóveda ya poblada, cifrando
+en el host exactamente igual que lo haría el navegador. Solo para desarrollo.
+
+---
+
+## 5. Variables de entorno
+
+`deploy/.env` (permisos `600`, nunca se commitea). Ver `deploy/.env.example`.
+
+| Variable | Por defecto | Notas |
+|----------|-------------|-------|
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `keyvault` / — / `keyvault` | La contraseña la genera `deploy.sh`. |
+| `JWT_SECRET`, `JWT_REFRESH_SECRET` | — | 32 bytes hex. Rotarlos invalida todas las sesiones. |
+| `JWT_ACCESS_TTL` / `JWT_REFRESH_TTL` | `15m` / `7d` | |
+| `BCRYPT_ROUNDS` | `12` | |
+| `VAULT_MAX_BYTES` | `1048576` | El límite del body de Express se deriva de este valor. |
+| `TRUST_PROXY_HOPS` | `1` | Saltos de confianza para `X-Forwarded-For`. Necesario para el rate limit por IP. |
+| `RATE_LIMIT_WINDOW_MS` | `900000` | Ventana del rate limit de `/api/auth/*`. |
+| `RATE_LIMIT_AUTH_MAX_IP` | `20` | Máximo por IP y ventana. |
+| `RATE_LIMIT_AUTH_MAX_EMAIL` | `10` | Máximo de **fallos** por cuenta y ventana. |
+| `REFRESH_TOKEN_PURGE_DAYS` | `30` | Retención de tokens expirados/revocados. |
+
+**Rotación de secrets**: si el `.env` de desarrollo llegó a usarse en un servidor,
+rota `JWT_SECRET`, `JWT_REFRESH_SECRET` y `POSTGRES_PASSWORD` antes del primer
+despliegue real.
+
+---
+
+## 6. Comprobaciones post-despliegue
+
+```bash
+bash deploy/deploy.sh --check          # local
+ss -ltn                                # 5433 y 8084 no deben estar en 0.0.0.0
+curl -I https://tu-dominio/            # CSP + HSTS presentes
+nmap -Pn -p 22,80,443,5433,8084 <ip>   # desde OTRA máquina: solo 22/80/443 abiertos
+```
+
+La respuesta del frontend debe incluir `Content-Security-Policy` sin ningún
+origen externo, y ningún asset debe cargarse desde un CDN.
+
+---
+
+## 7. Resolución de problemas
+
+| Síntoma | Causa habitual |
+|---------|----------------|
+| Todos los endpoints dan 500 | Migraciones no aplicadas. `compose exec api node src/utils/migrations.js status`. |
+| `deploy.sh` aborta en preflight por migraciones | `.gitignore` volvió a excluir `*.sql` sin la excepción `!api/src/db/migrations/*.sql`. |
+| La app sigue vieja tras desplegar | Service worker cacheado. El shell y el manifest se sirven con `Cache-Control: no-cache`; fuerza recarga o desregistra el SW. |
+| 429 en login | Rate limit. Ajusta `RATE_LIMIT_*` o espera a que pase la ventana. |
+| `token_reuse_detected` | Se reutilizó un refresh token ya rotado: todas las sesiones del usuario quedan revocadas por seguridad. Hay que volver a iniciar sesión. |
+| Sesión cerrada en todos los dispositivos | Alguien cambió la contraseña de cuenta: es el comportamiento esperado. Los access tokens ya emitidos siguen valiendo hasta 15 min. |
+| El PIN maestro no abre la bóveda en otro dispositivo | Se cambió el PIN en otro equipo. No hay forma de "empujar" el cambio (el servidor no conoce el PIN): hay que bloquear y volver a abrir con el nuevo. |
+| El vault no descifra en otro dispositivo | El `vault_salt` vive en `users.vault_salt` y lo entrega el backend en login. Verifica que la respuesta lo incluya. |

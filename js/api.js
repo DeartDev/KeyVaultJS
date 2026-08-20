@@ -50,6 +50,12 @@ const ApiClient = (() => {
         return refreshingPromise;
     };
 
+    // Códigos de error 401 que NO significan "la sesión caducó", sino "el dato
+    // que enviaste es incorrecto". Refrescar el token o cerrar la sesión ante
+    // uno de estos sería un error: p. ej. equivocarse en la contraseña actual
+    // al cambiarla echaría al usuario de la aplicación.
+    const CREDENTIAL_ERROR_CODES = new Set(['invalid_credentials']);
+
     const request = async (path, { method = 'GET', body, auth = true, _retried = false } = {}) => {
         const headers = { 'Content-Type': 'application/json' };
         if (auth) {
@@ -63,7 +69,21 @@ const ApiClient = (() => {
             body: body ? JSON.stringify(body) : undefined,
         });
 
-        if (res.status === 401 && auth && !_retried) {
+        if (res.status === 204) return null;
+
+        // El cuerpo se lee antes de decidir qué hacer con un 401: hace falta el
+        // código de error para distinguir "token inválido" de "credencial mal".
+        let payload = null;
+        const text = await res.text();
+        if (text) {
+            try { payload = JSON.parse(text); }
+            catch { payload = { message: text }; }
+        }
+
+        const code = payload?.error || 'request_failed';
+        const isSessionProblem = res.status === 401 && !CREDENTIAL_ERROR_CODES.has(code);
+
+        if (isSessionProblem && auth && !_retried) {
             try {
                 await doRefresh();
                 return request(path, { method, body, auth, _retried: true });
@@ -74,19 +94,9 @@ const ApiClient = (() => {
             }
         }
 
-        if (res.status === 204) return null;
-
-        let payload = null;
-        const text = await res.text();
-        if (text) {
-            try { payload = JSON.parse(text); }
-            catch { payload = { message: text }; }
-        }
-
         if (!res.ok) {
-            const code = payload?.error || 'request_failed';
             const message = payload?.message || `Error ${res.status}`;
-            if (res.status === 401) {
+            if (isSessionProblem) {
                 window.dispatchEvent(new CustomEvent('auth:unauthorized'));
             }
             throw new ApiError(res.status, code, message, payload);
@@ -106,6 +116,10 @@ const ApiClient = (() => {
             const refreshToken = getRefreshToken();
             return request('/auth/logout', { method: 'POST', body: { refreshToken } }).catch(() => null);
         },
+        // Cambio de contraseña de CUENTA. El PIN maestro no interviene: no viaja
+        // nunca al servidor y se cambia solo en el cliente (ver StorageModule).
+        changePassword: (currentPassword, newPassword) =>
+            request('/auth/change-password', { method: 'POST', body: { currentPassword, newPassword } }),
 
         // vault
         getVault: () => request('/vault'),

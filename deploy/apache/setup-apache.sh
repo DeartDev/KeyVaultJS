@@ -7,7 +7,7 @@
 # certificate via certbot with automatic HTTPS redirect.
 #
 # Usage:
-#   sudo setup-apache.sh <domain> [email]
+#   sudo setup-apache.sh <domain> [email] [--no-hsts]
 #
 # Requires root. Exits non-zero on failure.
 # ==========================================
@@ -15,6 +15,8 @@ set -euo pipefail
 
 DOMAIN="${1:-}"
 EMAIL="${2:-}"
+ENABLE_HSTS=1
+[[ "${3:-}" == "--no-hsts" ]] && ENABLE_HSTS=0
 
 if [[ $EUID -ne 0 ]]; then
   echo "[apache] This script must be run as root (sudo)." >&2
@@ -57,6 +59,34 @@ fi
 echo "[apache] Reloading Apache..."
 systemctl reload apache2 || systemctl restart apache2
 
+# ---------- HSTS en el vhost TLS (H-08) ----------
+# Se añade DESPUÉS de certbot, sobre el vhost :443 que él genera. Nunca en el
+# vhost :80: HSTS sobre HTTP plano se ignora y, si el certificado fallara, un
+# navegador que ya lo recibió no podría volver a HTTP durante max-age.
+add_hsts() {
+  local ssl_conf
+  for ssl_conf in "/etc/apache2/sites-available/keyvault-le-ssl.conf" \
+                  "/etc/apache2/sites-available/keyvault-ssl.conf"; do
+    [[ -f "$ssl_conf" ]] || continue
+    if grep -q "Strict-Transport-Security" "$ssl_conf"; then
+      echo "[apache] HSTS ya estaba configurado en $(basename "$ssl_conf")."
+      return 0
+    fi
+    echo "[apache] Añadiendo HSTS a $(basename "$ssl_conf")..."
+    sed -i 's|</VirtualHost>|    <IfModule mod_headers.c>\n        Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"\n    </IfModule>\n</VirtualHost>|' "$ssl_conf"
+    if apache2ctl configtest >/dev/null 2>&1; then
+      systemctl reload apache2
+      echo "[apache] HSTS activo (max-age=1 año). Revertirlo requiere esperar a que"
+      echo "[apache] caduque en cada navegador: no lo actives si HTTPS no es estable."
+    else
+      echo "[apache] [WARN] configtest falló tras añadir HSTS; revirtiendo." >&2
+      sed -i '/Strict-Transport-Security/d' "$ssl_conf"
+    fi
+    return 0
+  done
+  echo "[apache] [WARN] No se encontró el vhost TLS; HSTS no se aplicó." >&2
+}
+
 # ---------- SSL via certbot ----------
 if [[ -n "$EMAIL" ]]; then
   if ! command -v certbot >/dev/null 2>&1; then
@@ -71,6 +101,7 @@ if [[ -n "$EMAIL" ]]; then
       --redirect \
       -m "$EMAIL"; then
     echo "[apache] SSL certificate installed and HTTPS redirect enabled."
+    [[ $ENABLE_HSTS -eq 1 ]] && add_hsts
   else
     echo "[apache] [WARN] certbot failed. Apache is serving HTTP only. Re-run certbot manually:" >&2
     echo "          sudo certbot --apache -d $DOMAIN" >&2

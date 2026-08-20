@@ -13,9 +13,12 @@ export const registerSchema = z.object({
     .string()
     .min(12, 'Password must be at least 12 characters')
     .max(128, 'Password too long'),
+  // H-20: el cliente genera 16 bytes aleatorios -> 24 caracteres base64 con
+  // padding. Exigir >= 22 impide registrar un salt trivialmente corto.
   vaultSalt: z
     .string()
-    .min(8, 'vaultSalt required')
+    .min(22, 'vaultSalt must encode at least 16 random bytes')
+    .max(64)
     .regex(base64Pattern, 'vaultSalt must be base64'),
 });
 
@@ -30,4 +33,18 @@ export const refreshSchema = z.object({
 
 export const logoutSchema = z.object({
   refreshToken: z.string().min(1, 'refreshToken required'),
+});
+
+// La igualdad newPassword === currentPassword NO se valida aquí a propósito:
+// el spec exige 400 bad_request para ese caso y no un 422 de validación, así
+// que la comprueba el controlador.
+export const changePasswordSchema = z.object({
+  currentPassword: z
+    .string()
+    .min(1, 'currentPassword required')
+    .max(128, 'Password too long'),
+  newPassword: z
+    .string()
+    .min(12, 'Password must be at least 12 characters')
+    .max(128, 'Password too long'),
 });

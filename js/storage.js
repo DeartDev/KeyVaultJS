@@ -55,13 +55,22 @@ const StorageModule = (() => {
     };
 
     // --- Save (local + remote) ---
-    const saveVault = async (data, password) => {
+    /**
+     * @param {object}  opts
+     * @param {boolean} opts.requireRemote  Si es true, un fallo de red NO se
+     *   considera éxito: se propaga el error. Lo usa el cambio de PIN, donde
+     *   dejar el vault re-cifrado solo en la caché local sería peligroso (el
+     *   usuario creería que cambió el PIN mientras el servidor sigue con el
+     *   blob viejo, que el PIN anterior aún abre desde otro dispositivo).
+     */
+    const saveVault = async (data, password, { requireRemote = false } = {}) => {
         try {
             const encryptedBlob = await encryptForPin(data, password);
             setCacheEncryptedBlob(encryptedBlob);
 
             // Push remoto. Si no hay sesión, solo se guarda en local (modo offline/legacy).
             if (!ApiClient.hasSession()) {
+                if (requireRemote) throw new Error('Necesitas conexión para completar esta operación');
                 return true;
             }
 
@@ -74,14 +83,31 @@ const StorageModule = (() => {
                 if (err instanceof ApiError && err.status === 409) {
                     throw new VaultConflictError(err.details?.currentVersion ?? null);
                 }
+                if (requireRemote) throw err;
                 // Error de red u otro: mantenemos la caché local y no abortamos.
                 console.warn('saveVault: push remoto falló, se mantiene caché local.', err);
                 return true;
             }
         } catch (err) {
-            if (err instanceof VaultConflictError) throw err;
+            if (err instanceof VaultConflictError || requireRemote) throw err;
             console.error('Error guardando la bóveda:', err);
             return false;
+        }
+    };
+
+    /**
+     * Re-cifra el vault con los parámetros KDF actuales si el blob venía con
+     * unos antiguos (H-10). Es transparente y best-effort: si falla (sin red,
+     * conflicto de versión), el vault sigue siendo legible con su formato
+     * original y se reintentará en el siguiente desbloqueo.
+     */
+    const reencryptIfStale = async (blob, data, password) => {
+        if (!CryptoModule.needsReencryption(blob)) return;
+        try {
+            await saveVault(data, password);
+            console.info('Vault re-cifrado con los parámetros KDF actuales.');
+        } catch (err) {
+            console.warn('No se pudo re-cifrar el vault todavía.', err);
         }
     };
 
@@ -94,7 +120,9 @@ const StorageModule = (() => {
                 if (remote && remote.encryptedBlob && remote.encryptedBlob !== ':') {
                     setCacheEncryptedBlob(remote.encryptedBlob);
                     setLocalVersion(remote.version);
-                    return await decryptForPin(remote.encryptedBlob, password);
+                    const data = await decryptForPin(remote.encryptedBlob, password);
+                    await reencryptIfStale(remote.encryptedBlob, data, password);
+                    return data;
                 }
                 // Vault remoto vacío (recién registrado): devolvemos [] sin tocar caché.
                 setLocalVersion(remote?.version ?? 0);
@@ -117,7 +145,39 @@ const StorageModule = (() => {
 
     const clearVault = () => {
         clearCache();
-        localStorage.removeItem('pm_salt');
+    };
+
+    /**
+     * Cambia el PIN maestro (Funcionalidad B del spec de credenciales).
+     *
+     * El PIN no viaja nunca al servidor, así que "cambiarlo" es exactamente
+     * descifrar con el actual y volver a cifrar con el nuevo. Para el backend
+     * esto es un PUT /api/vault más, con un blob distinto.
+     *
+     * La verificación del PIN actual es el propio descifrado: no hay ningún
+     * sitio donde el PIN esté guardado contra el que comparar.
+     *
+     * Devuelve el contenido del vault (ya re-cifrado en remoto con el PIN nuevo).
+     */
+    const changeMasterPin = async (currentPin, newPin) => {
+        if (!currentPin || !newPin) throw new Error('Falta el PIN actual o el nuevo');
+        if (currentPin === newPin) throw new Error('El PIN nuevo debe ser distinto del actual');
+
+        // Descifra con el PIN actual. Si es incorrecto, lanza y no se toca nada.
+        let data = await loadVault(currentPin);
+
+        try {
+            await saveVault(data, newPin, { requireRemote: true });
+        } catch (err) {
+            if (!(err instanceof VaultConflictError)) throw err;
+            // La bóveda cambió en otro dispositivo mientras cambiábamos el PIN.
+            // Se vuelve a bajar (sigue cifrada con el PIN viejo), se re-cifra y
+            // se reintenta una sola vez; un segundo conflicto se propaga a la UI.
+            data = await loadVault(currentPin);
+            await saveVault(data, newPin, { requireRemote: true });
+        }
+
+        return data;
     };
 
     // Tras login/registro: sincroniza la versión local con la remota.
@@ -137,6 +197,7 @@ const StorageModule = (() => {
     return {
         saveVault,
         loadVault,
+        changeMasterPin,
         hasVault,
         clearVault,
         syncFromRemote,

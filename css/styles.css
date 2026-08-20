@@ -20,6 +20,10 @@
     --glass-blur: backdrop-filter: blur(12px);
     --transition: all 0.3s ease;
 
+    /* Overlays para hover (translúcidos sobre superficies glass) */
+    --hover-overlay: rgba(255, 255, 255, 0.08);
+    --hover-overlay-strong: rgba(255, 255, 255, 0.15);
+
     color-scheme: dark;
 }
 
@@ -39,6 +43,10 @@
     --success-color: #059669;
 
     --glass-shadow: 0 4px 30px rgba(15, 23, 42, 0.12);
+
+    /* Overlays para hover (oscuros translúcidos sobre superficies claras) */
+    --hover-overlay: rgba(15, 23, 42, 0.06);
+    --hover-overlay-strong: rgba(15, 23, 42, 0.12);
 
     color-scheme: light;
 }
@@ -152,7 +160,7 @@ body {
     color: var(--text-secondary);
 }
 
-.input-group > i {
+.input-group > .icon {
     position: absolute;
     left: 15px;
     top: 50%;
@@ -263,7 +271,7 @@ body {
 }
 
 .btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--hover-overlay);
 }
 
 .btn-icon {
@@ -282,7 +290,7 @@ body {
 }
 
 .btn-icon:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--hover-overlay);
 }
 
 /* --- Dashboard --- */
@@ -330,7 +338,7 @@ body {
     border-radius: 30px;
 }
 
-.search-bar i {
+.search-bar .icon {
     color: var(--text-secondary);
     margin-right: 15px;
 }
@@ -362,7 +370,7 @@ body {
 }
 
 .password-item:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--hover-overlay);
 }
 
 .item-info {
@@ -407,7 +415,7 @@ body {
     color: var(--text-secondary);
 }
 
-.empty-state i {
+.empty-state .icon {
     font-size: 3rem;
     margin-bottom: 15px;
     opacity: 0.5;
@@ -514,7 +522,7 @@ body {
     backdrop-filter: blur(10px);
     border: 1px solid var(--surface-border);
     border-radius: 30px;
-    color: white;
+    color: var(--text-primary);
     font-size: 0.9rem;
     box-shadow: 0 4px 15px rgba(0,0,0,0.3);
     animation: toastIn 0.3s ease forwards;
@@ -552,7 +560,7 @@ body {
     display: flex;
     gap: 8px;
     margin-bottom: 20px;
-    background: rgba(15, 23, 42, 0.6);
+    background: var(--input-bg);
     padding: 5px;
     border-radius: 12px;
     border: 1px solid var(--surface-border);
@@ -625,10 +633,10 @@ body {
     color: var(--text-primary);
 }
 
-.settings-section label i {
+.settings-section label .icon {
     color: var(--secondary-color);
     width: 18px;
-    text-align: center;
+    height: 18px;
 }
 
 .settings-section select,
@@ -696,4 +704,126 @@ body {
 
 :root[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
     background: rgba(15, 23, 42, 0.3);
+}
+
+/* --- Iconos SVG propios (sustituyen a Font Awesome, H-07) ---
+   Heredan color y tamaño del contexto: `currentColor` + 1em, igual que hacía
+   un icon-font. Así los selectores de tamaño existentes siguen funcionando. */
+.svg-sprite {
+    position: absolute;
+}
+
+.icon {
+    width: 1em;
+    height: 1em;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vertical-align: -0.125em;
+    pointer-events: none;
+}
+
+/* Icono grande del modal de confirmación de borrado. */
+.icon-alert-lg {
+    font-size: 3rem;
+    color: var(--danger-color);
+    margin-bottom: 15px;
+}
+
+/* --- Utilidades que sustituyen a los antiguos atributos style="" en línea,
+       necesarias para servir con `style-src 'self'` (H-08). --- */
+.modal-confirm {
+    max-width: 350px;
+    text-align: center;
+}
+
+.modal-confirm-text {
+    color: var(--text-secondary);
+    margin: 10px 0 20px;
+}
+
+.btn.btn-danger {
+    background: var(--danger-color);
+}
+
+/* --- Cambio de credenciales (contraseña de cuenta / PIN maestro) --- */
+.settings-credentials {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Fila de ajustes: etiqueta a la izquierda, chevron a la derecha. */
+.btn.btn-settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    text-align: left;
+    font-weight: 500;
+}
+
+.btn-settings-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-settings-label .icon {
+    color: var(--secondary-color);
+}
+
+.btn-settings-row > .icon {
+    color: var(--text-secondary);
+    opacity: 0.7;
+}
+
+/* Texto explicativo bajo el título de un modal. */
+.modal-note {
+    margin: -5px 0 20px;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+/* Aviso destacado: el PIN maestro no se puede recuperar. */
+.modal-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: -5px 0 20px;
+    padding: 12px 14px;
+    border: 1px solid var(--danger-color);
+    border-radius: 10px;
+    background: rgba(239, 68, 68, 0.08);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--text-primary);
+}
+
+.modal-warning .icon {
+    flex-shrink: 0;
+    margin-top: 2px;
+    font-size: 1.1rem;
+    color: var(--danger-color);
+}
+
+/* Validación inline de los formularios de credenciales. */
+.form-hint {
+    min-height: 1.2em;
+    margin: -10px 0 0;
+    font-size: 0.85rem;
+    line-height: 1.2;
+}
+
+.form-hint.error {
+    color: var(--danger-color);
+}
+
+.form-hint.info {
+    color: var(--text-secondary);
 }
