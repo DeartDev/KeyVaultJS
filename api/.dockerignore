@@ -18,12 +18,14 @@ logs/
 .env.*
 !.env.example
 
-# ---------- Tests y cobertura ----------
+# ---------- Cobertura ----------
 coverage/
 .nyc_output/
-test/
 tests/
 __tests__/
+# NOTA: `test/` SÍ entra en la imagen. Pesa pocos KB y no arrastra dependencias
+# (usa node:test + fetch), y permite verificar un despliegue in situ con
+# `docker compose exec api npm test`.
 
 # ---------- Control de versiones y metadatos ----------
 .git/

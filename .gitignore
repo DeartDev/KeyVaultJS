@@ -54,9 +54,16 @@ deploy/.env
 backup*/
 pgdata/
 
+# EXCEPCIÓN: las migraciones del esquema SÍ deben viajar en el repositorio.
+# Sin ellas, un `git clone` en un servidor limpio deja la API sin esquema.
+!api/src/db/migrations/*.sql
+
 # ---------- Docker (volúmenes locales / bind mounts) ----------
 # Los volúmenes nombrados los gestiona Docker; esto cubre bind mounts accidentales.
 *.docker-volume/
+
+# ---------- Estado local del script de despliegue ----------
+deploy/.deploy-state/
 
 # ---------- Temporales ----------
 *.tmp

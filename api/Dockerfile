@@ -3,7 +3,7 @@
 # ==========================================
 
 # --- Stage 1: deps ---
-FROM node:20-bookworm-slim AS deps
+FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS deps
 WORKDIR /app
 
 # OpenSSL y CA certs para bcrypt y TLS.
@@ -15,7 +15,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 # --- Stage 2: runtime ---
-FROM node:20-bookworm-slim AS runtime
+FROM node:20-bookworm-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS runtime
 WORKDIR /app
 
 ENV NODE_ENV=production \
@@ -27,6 +27,7 @@ RUN groupadd --system app && useradd --system --gid app --create-home app
 COPY --from=deps /app/node_modules ./node_modules
 COPY package*.json ./
 COPY src ./src
+COPY test ./test
 
 RUN chown -R app:app /app
 USER app

@@ -1,16 +1,37 @@
 {
-  "name": "Gestor de Contraseñas",
-  "short_name": "Contraseñas",
-  "description": "Bóveda segura de contraseñas con encriptación local.",
+  "name": "KeyVault — Gestor de Contraseñas",
+  "short_name": "KeyVault",
+  "description": "Bóveda segura de contraseñas con cifrado en el navegador (Zero-Knowledge).",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#6366f1",
+  "lang": "es",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2889/2889676.png",
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "keyvault.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ]
 }

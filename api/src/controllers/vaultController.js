@@ -1,8 +1,6 @@
 import { query, withTransaction } from '../db/pool.js';
 import { notFound, conflict } from '../utils/httpErrors.js';
 
-const EMPTY_BLOB = ':';
-
 export const getVault = async (req, res) => {
   const { rows } = await query(
     `SELECT encrypted_blob, version, updated_at
@@ -73,5 +71,3 @@ export const putVault = async (req, res) => {
     updatedAt: result.updated_at,
   });
 };
-
-void EMPTY_BLOB;

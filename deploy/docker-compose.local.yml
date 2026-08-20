@@ -1,0 +1,22 @@
+# ==========================================
+# KeyVaultJS - override LOCAL (desarrollo)
+# ==========================================
+#   docker compose --env-file deploy/.env \
+#     -f deploy/docker-compose.yml -f deploy/docker-compose.local.yml up -d
+#
+# O simplemente:  bash deploy/deploy.sh --local
+# ==========================================
+
+services:
+  web:
+    ports:
+      # En local se publica en 0.0.0.0 para poder abrirlo desde otro equipo
+      # de la LAN durante las pruebas. Cambiar a "127.0.0.1:8084:80" si no
+      # se quiere exponer ni siquiera en la red local.
+      - "8084:80"
+
+  db:
+    ports:
+      # Solo loopback: para clientes GUI (pgAdmin/DBeaver) en la máquina de
+      # desarrollo. Nunca alcanzable desde fuera del host.
+      - "127.0.0.1:5433:5432"

@@ -11,9 +11,15 @@ import { errorHandler, notFound } from './middleware/errorHandler.js';
 const app = express();
 
 app.disable('x-powered-by');
+
+// H-12: detrás de nginx (y de Apache en producción). Sin esto req.ip es la IP
+// del contenedor nginx, lo que inutiliza el rate limit por IP y ensucia los logs.
+app.set('trust proxy', config.TRUST_PROXY_HOPS);
+
 app.use(pinoHttp({ logger, genReqId: () => randomUUID() }));
 
-app.use(express.json({ limit: '2mb' }));
+// H-18: el límite del body escala con VAULT_MAX_BYTES en lugar de estar fijo.
+app.use(express.json({ limit: config.jsonBodyLimit }));
 
 // Security headers for API responses.
 app.use((_req, res, next) => {

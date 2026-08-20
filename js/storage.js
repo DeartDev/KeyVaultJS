@@ -85,6 +85,22 @@ const StorageModule = (() => {
         }
     };
 
+    /**
+     * Re-cifra el vault con los parámetros KDF actuales si el blob venía con
+     * unos antiguos (H-10). Es transparente y best-effort: si falla (sin red,
+     * conflicto de versión), el vault sigue siendo legible con su formato
+     * original y se reintentará en el siguiente desbloqueo.
+     */
+    const reencryptIfStale = async (blob, data, password) => {
+        if (!CryptoModule.needsReencryption(blob)) return;
+        try {
+            await saveVault(data, password);
+            console.info('Vault re-cifrado con los parámetros KDF actuales.');
+        } catch (err) {
+            console.warn('No se pudo re-cifrar el vault todavía.', err);
+        }
+    };
+
     // --- Load (remote-first, cache fallback) ---
     const loadVault = async (password) => {
         // Intenta remoto primero si hay sesión.
@@ -94,7 +110,9 @@ const StorageModule = (() => {
                 if (remote && remote.encryptedBlob && remote.encryptedBlob !== ':') {
                     setCacheEncryptedBlob(remote.encryptedBlob);
                     setLocalVersion(remote.version);
-                    return await decryptForPin(remote.encryptedBlob, password);
+                    const data = await decryptForPin(remote.encryptedBlob, password);
+                    await reencryptIfStale(remote.encryptedBlob, data, password);
+                    return data;
                 }
                 // Vault remoto vacío (recién registrado): devolvemos [] sin tocar caché.
                 setLocalVersion(remote?.version ?? 0);
@@ -117,7 +135,6 @@ const StorageModule = (() => {
 
     const clearVault = () => {
         clearCache();
-        localStorage.removeItem('pm_salt');
     };
 
     // Tras login/registro: sincroniza la versión local con la remota.

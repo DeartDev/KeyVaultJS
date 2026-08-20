@@ -13,9 +13,12 @@ export const registerSchema = z.object({
     .string()
     .min(12, 'Password must be at least 12 characters')
     .max(128, 'Password too long'),
+  // H-20: el cliente genera 16 bytes aleatorios -> 24 caracteres base64 con
+  // padding. Exigir >= 22 impide registrar un salt trivialmente corto.
   vaultSalt: z
     .string()
-    .min(8, 'vaultSalt required')
+    .min(22, 'vaultSalt must encode at least 16 random bytes')
+    .max(64)
     .regex(base64Pattern, 'vaultSalt must be base64'),
 });
 

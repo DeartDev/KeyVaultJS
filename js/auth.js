@@ -14,14 +14,23 @@ const AuthModule = (() => {
     const loadStoredUser = () => {
         try {
             const raw = localStorage.getItem(USER_KEY);
-            currentUser = raw ? JSON.parse(raw) : null;
-        } catch { currentUser = null; }
+            const user = raw ? JSON.parse(raw) : null;
+            persistUser(user); // centraliza sincronización del salt con CryptoModule
+        } catch { persistUser(null); }
     };
 
     const persistUser = (user) => {
         currentUser = user;
-        if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
-        else localStorage.removeItem(USER_KEY);
+        if (user) {
+            localStorage.setItem(USER_KEY, JSON.stringify(user));
+            // Fuente única del salt: el backend. CryptoModule lo consume.
+            if (user.vaultSalt) {
+                CryptoModule.setSalt(user.vaultSalt);
+            }
+        } else {
+            localStorage.removeItem(USER_KEY);
+            CryptoModule.clearSalt();
+        }
     };
 
     const getUser = () => currentUser;
@@ -30,13 +39,14 @@ const AuthModule = (() => {
     const emit = (name, detail) => window.dispatchEvent(new CustomEvent(name, { detail }));
 
     const register = async ({ email, password }) => {
-        // Generamos un salt aleatorio para derivar la clave del vault (igual que crypto.js).
+        // Generamos un salt aleatorio para derivar la clave del vault.
+        // Se envía al backend (users.vault_salt) como fuente única portable.
         const saltBytes = crypto.getRandomValues(new Uint8Array(16));
         const vaultSalt = btoa(String.fromCharCode(...saltBytes));
 
         const data = await ApiClient.register(email, password, vaultSalt);
         ApiClient.setTokens(data);
-        persistUser(data.user);
+        persistUser(data.user); // setea el salt en CryptoModule
         emit('auth:loggedIn', data.user);
         return data.user;
     };

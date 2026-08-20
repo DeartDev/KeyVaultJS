@@ -75,6 +75,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let vaultData = [];
     let entryToDelete = null;
     let authMode = 'login'; // 'login' | 'register'
+    let pinMode = 'unlock'; // 'unlock' | 'create' — estado explícito: antes se
+                            // deducía del copy del título (frágil ante cambios).
 
     // --- Utilidades de UI ---
     const showToast = (message, type = 'info') => {
@@ -86,6 +88,31 @@ document.addEventListener('DOMContentLoaded', () => {
             toast.style.animation = 'toastOut 0.3s ease forwards';
             setTimeout(() => toast.remove(), 300);
         }, 3000);
+    };
+
+    /**
+     * H-21: borra del portapapeles la contraseña copiada pasados 30 s.
+     * Es best-effort por diseño:
+     *  - Solo limpia si el contenido sigue siendo el que copiamos, para no
+     *    pisar algo que el usuario haya copiado después.
+     *  - Escribir en el portapapeles exige que el documento tenga el foco; si
+     *    la pestaña está en segundo plano, se descarta sin ruido.
+     */
+    let clipboardClearTimer = null;
+    const CLIPBOARD_CLEAR_MS = 30000;
+
+    const scheduleClipboardClear = (copiedValue) => {
+        clearTimeout(clipboardClearTimer);
+        clipboardClearTimer = setTimeout(async () => {
+            if (!document.hasFocus()) return;
+            try {
+                const current = await navigator.clipboard.readText();
+                if (current !== copiedValue) return; // el usuario copió otra cosa
+                await navigator.clipboard.writeText('');
+            } catch {
+                // Permiso denegado o API no disponible: se deja como está.
+            }
+        }, CLIPBOARD_CLEAR_MS);
     };
 
     const showScreen = (screenId) => {
@@ -144,11 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             authForm.reset();
-            pinTitle.textContent = authMode === 'login' ? 'Bóveda bloqueada' : 'Define tu PIN maestro';
-            pinSubtitle.textContent = authMode === 'login'
-                ? 'Introduce tu PIN maestro para descifrar la bóveda'
-                : 'Este PIN cifra tu bóveda localmente. Si lo olvidas, no hay recuperación.';
-            pinBtn.textContent = authMode === 'login' ? 'Desbloquear' : 'Crear bóveda';
+            setPinMode(authMode === 'login' ? 'unlock' : 'create');
             showScreen('login-screen');
             masterPinInput.focus();
         } catch (err) {
@@ -158,6 +181,16 @@ document.addEventListener('DOMContentLoaded', () => {
             setAuthMode(authMode); // restore button label
         }
     });
+
+    const setPinMode = (mode) => {
+        pinMode = mode;
+        const creating = mode === 'create';
+        pinTitle.textContent = creating ? 'Define tu PIN maestro' : 'Bóveda bloqueada';
+        pinSubtitle.textContent = creating
+            ? 'Este PIN cifra tu bóveda localmente. Si lo olvidas, no hay recuperación.'
+            : 'Introduce tu PIN maestro para descifrar la bóveda';
+        pinBtn.textContent = creating ? 'Crear bóveda' : 'Desbloquear';
+    };
 
     btnBackToAuth.addEventListener('click', async () => {
         await AuthModule.logout();
@@ -197,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
             masterPinInput.value = '';
             masterPinInput.focus();
         } finally {
-            pinBtn.textContent = pinTitle.textContent.includes('Define') ? 'Crear bóveda' : 'Desbloquear';
+            pinBtn.textContent = pinMode === 'create' ? 'Crear bóveda' : 'Desbloquear';
             pinBtn.disabled = false;
         }
     });
@@ -232,7 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (filtered.length === 0) {
             passwordsList.innerHTML = `
                 <div class="empty-state">
-                    <i class="fa-solid fa-folder-open"></i>
+                    <svg class="icon" aria-hidden="true"><use href="#i-folder"></use></svg>
                     <p>No hay contraseñas${filter ? ' que coincidan' : ' guardadas'}</p>
                 </div>
             `;
@@ -249,13 +282,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="item-actions">
                     <button class="btn-icon copy-btn" data-id="${item.id}" title="Copiar Contraseña">
-                        <i class="fa-regular fa-copy"></i>
+                        <svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg>
                     </button>
                     <button class="btn-icon edit-btn" data-id="${item.id}" title="Editar">
-                        <i class="fa-solid fa-pen"></i>
+                        <svg class="icon" aria-hidden="true"><use href="#i-edit"></use></svg>
                     </button>
                     <button class="btn-icon btn-delete" data-id="${item.id}" title="Eliminar">
-                        <i class="fa-solid fa-trash"></i>
+                        <svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>
                     </button>
                 </div>
             `;
@@ -269,7 +302,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const entry = vaultData.find(i => i.id === id);
                 if (!entry) return;
                 navigator.clipboard.writeText(entry.password)
-                    .then(() => showToast('Contraseña copiada', 'success'))
+                    .then(() => {
+                        showToast('Contraseña copiada (se borra en 30 s)', 'success');
+                        scheduleClipboardClear(entry.password);
+                    })
                     .catch(() => showToast('No se pudo copiar', 'error'));
             });
         });
@@ -302,7 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
         entryId.value = '';
         modalTitle.textContent = 'Nueva Contraseña';
         entryPassword.type = 'password';
-        toggleEntryPwd.innerHTML = '<i class="fa-solid fa-eye"></i>';
+        toggleEntryPwd.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-eye"></use></svg>';
         openModal(passwordModal);
     });
 
@@ -313,10 +349,10 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleEntryPwd.addEventListener('click', () => {
         if (entryPassword.type === 'password') {
             entryPassword.type = 'text';
-            toggleEntryPwd.innerHTML = '<i class="fa-solid fa-eye-slash"></i>';
+            toggleEntryPwd.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-eye-off"></use></svg>';
         } else {
             entryPassword.type = 'password';
-            toggleEntryPwd.innerHTML = '<i class="fa-solid fa-eye"></i>';
+            toggleEntryPwd.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-eye"></use></svg>';
         }
     });
 
@@ -328,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
         entryUsername.value = item.username;
         entryPassword.value = item.password;
         entryPassword.type = 'password';
-        toggleEntryPwd.innerHTML = '<i class="fa-solid fa-eye"></i>';
+        toggleEntryPwd.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-eye"></use></svg>';
         modalTitle.textContent = 'Editar Contraseña';
         openModal(passwordModal);
     };
@@ -404,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnGeneratePwd.addEventListener('click', () => {
             entryPassword.value = PasswordGenerator.generate(16);
             entryPassword.type = 'text';
-            toggleEntryPwd.innerHTML = '<i class="fa-solid fa-eye-slash"></i>';
+            toggleEntryPwd.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-eye-off"></use></svg>';
         });
     }
 
@@ -506,15 +542,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     const resetTimer = scheduleInactivity;
-    ['click', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(evt => {
+    // keypress está deprecado y no dispara con teclas no imprimibles.
+    ['click', 'mousemove', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
         document.addEventListener(evt, resetTimer, true);
     });
 
     // --- Inicialización ---
     if (AuthModule.isLoggedIn()) {
-        pinTitle.textContent = 'Bóveda bloqueada';
-        pinSubtitle.textContent = 'Introduce tu PIN maestro para descifrar la bóveda';
-        pinBtn.textContent = 'Desbloquear';
+        setPinMode('unlock');
         showScreen('login-screen');
     } else {
         showScreen('auth-screen');

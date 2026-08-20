@@ -1,0 +1,19 @@
+# ==========================================
+# KeyVaultJS - override PRODUCCIÓN
+# ==========================================
+#   docker compose --env-file deploy/.env \
+#     -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml up -d
+#
+# O simplemente:  sudo bash deploy/deploy.sh --prod
+#
+# Flujo de red en producción:
+#   Internet -> Apache :443 (TLS) -> 127.0.0.1:8084 -> nginx (web) -> api:3000
+#
+# El ÚNICO puerto alcanzable desde fuera debe ser el de Apache (80/443).
+# `db` no publica nada; `web` solo escucha en loopback.
+# ==========================================
+
+services:
+  web:
+    ports:
+      - "127.0.0.1:8084:80"

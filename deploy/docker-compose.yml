@@ -1,20 +1,32 @@
 # ==========================================
-# KeyVaultJS - docker-compose (local + server)
-# Run from /var/www/keyvaultjs:
-#   docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
+# KeyVaultJS - docker-compose BASE
+# ==========================================
+# Este archivo NO publica ningún puerto al host. El binding se define en los
+# overrides, para que producción no pueda exponer nada por accidente:
+#
+#   Local:      docker compose --env-file deploy/.env \
+#                 -f deploy/docker-compose.yml -f deploy/docker-compose.local.yml up -d
+#   Producción: docker compose --env-file deploy/.env \
+#                 -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml up -d
+#
+# Normalmente no se invoca a mano: usar deploy/deploy.sh --local | --prod.
+#
+# Las imágenes se fijan por digest (H-22) para builds reproducibles. Para
+# actualizarlas: docker pull <tag> && docker image inspect <tag> \
+#                  --format '{{index .RepoDigests 0}}'
 # ==========================================
 
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
     container_name: keyvault_db
     restart: unless-stopped
     environment:
       POSTGRES_USER:     ${POSTGRES_USER:-keyvault}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB:       ${POSTGRES_DB:-keyvault}
-    ports:
-      - "5433:5432"
+    # Sin `ports:`. La API llega por DNS interno de compose (db:5432) y las
+    # migraciones se ejecutan con `docker compose exec`. Nada del host lo necesita.
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -22,31 +34,47 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
     networks:
       - keyvault_net
 
   api:
     build:
       context: ../api
+    # Nombre explícito de la imagen: deploy.sh etiqueta la anterior como
+    # :previous antes de reconstruir, para poder hacer --rollback.
+    image: keyvaultjs-api:latest
     container_name: keyvault_api
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
-      NODE_ENV:           ${NODE_ENV:-production}
-      LOG_LEVEL:          ${LOG_LEVEL:-info}
-      DATABASE_URL:       postgres://${POSTGRES_USER:-keyvault}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-keyvault}
-      JWT_SECRET:         ${JWT_SECRET:?JWT_SECRET is required}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
-      JWT_ACCESS_TTL:     ${JWT_ACCESS_TTL:-15m}
-      JWT_REFRESH_TTL:    ${JWT_REFRESH_TTL:-7d}
-      BCRYPT_ROUNDS:      ${BCRYPT_ROUNDS:-12}
-      VAULT_MAX_BYTES:    ${VAULT_MAX_BYTES:-1048576}
-      PORT:               "3000"
+      NODE_ENV:            ${NODE_ENV:-production}
+      LOG_LEVEL:           ${LOG_LEVEL:-info}
+      DATABASE_URL:        postgres://${POSTGRES_USER:-keyvault}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-keyvault}
+      JWT_SECRET:          ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_REFRESH_SECRET:  ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
+      JWT_ACCESS_TTL:      ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL:     ${JWT_REFRESH_TTL:-7d}
+      BCRYPT_ROUNDS:       ${BCRYPT_ROUNDS:-12}
+      VAULT_MAX_BYTES:     ${VAULT_MAX_BYTES:-1048576}
+      TRUST_PROXY_HOPS:    ${TRUST_PROXY_HOPS:-1}
+      RATE_LIMIT_WINDOW_MS:      ${RATE_LIMIT_WINDOW_MS:-900000}
+      RATE_LIMIT_AUTH_MAX_IP:    ${RATE_LIMIT_AUTH_MAX_IP:-20}
+      RATE_LIMIT_AUTH_MAX_EMAIL: ${RATE_LIMIT_AUTH_MAX_EMAIL:-10}
+      REFRESH_TOKEN_PURGE_DAYS:  ${REFRESH_TOKEN_PURGE_DAYS:-30}
+      PORT:                "3000"
     # Internal port only: not published to host.
     expose:
       - "3000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 384m
     networks:
       - keyvault_net
 
@@ -54,12 +82,31 @@ services:
     build:
       context: ..
       dockerfile: web/Dockerfile
+    image: keyvaultjs-web:latest
     container_name: keyvault_web
     restart: unless-stopped
     depends_on:
-      - api
-    ports:
-      - "8084:80"
+      api:
+        condition: service_healthy
+    # Sin `ports:`. Ver docker-compose.local.yml / docker-compose.prod.yml.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      # nginx arranca como root, hace chown del cache y baja a nginx:nginx
+      # para los workers; además necesita bind del puerto 80 (<1024).
+      - CHOWN
+      - SETGID
+      - SETUID
+      - NET_BIND_SERVICE
+    mem_limit: 128m
     networks:
       - keyvault_net
 

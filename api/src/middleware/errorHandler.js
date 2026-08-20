@@ -1,5 +1,5 @@
 import { ZodError } from 'zod';
-import { HttpError, validationError } from '../utils/httpErrors.js';
+import { validationError } from '../utils/httpErrors.js';
 
 const redactKeys = new Set([
   'password',
@@ -45,5 +45,3 @@ export const errorHandler = (logger) => (err, req, res, _next) => {
 export const notFound = (req, res) => {
   res.status(404).json({ error: 'not_found', message: 'Resource not found' });
 };
-
-void HttpError;
